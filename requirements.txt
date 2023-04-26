@@ -8,6 +8,7 @@ dotmap
 omegaconf
 protobuf==3.8
 smplx
+python==3.9
 
 git+https://github.com/otaheri/chamfer_distance.git
 git+https://github.com/otaheri/MANO.git
