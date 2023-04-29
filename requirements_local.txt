@@ -5,6 +5,7 @@ human-body-prior
 smplx
 tqdm
 numpy
+typing_extensions
 pytorch-ignite
 pytorch3d
 open3d
