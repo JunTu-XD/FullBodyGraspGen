@@ -1,20 +1,18 @@
-# FullBodyGraspGen
-
+# setup
 ## conda
-install conda in /cluster/scratch/{username}/
-```
-module load gcc/8.2.0 python_gpu/3.10.4 boost/1.62.0 
-conda create -n grasp python=3.7.11
+conda create -n GraspGen python=3.8
 
-conda activate grasp
-conda install pytorch==1.10.1 torchvision torchaudio cudatoolkit=11.3 -c pytorch
-conda install pytorch3d -c pytorch3d
-conda install -c conda-forge meshplot
-conda install -c conda-forge jupyterlab #optional
-pip install -r requirements.txt
+## euler module
+module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy
 
-# kaolin
-pip install cython==0.29.20
-pip install kaolin==0.12.0 -f https://nvidia-kaolin.s3.us-east-2.amazonaws.com/torch-1.10.1_cu113.html
-```
+pip install requirements.txt
+
+## check python, pytorch+cu version
+## download https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html accrodingly
+pip install pytorch3d-0.7.3-cp38-cp38-linux_x86_64.whl
+
+
+## download files according to SAGA git.
+
+
 
