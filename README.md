@@ -35,3 +35,4 @@ in *train_helper.py* to
 - download SAGA 
 - pip install requirements_local.txt
 - follow instructions in SAGA repo
+- after inference done, download results folder into local code base to use vis_pose.py to show them.
