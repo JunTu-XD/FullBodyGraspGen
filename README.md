@@ -15,6 +15,7 @@ source venvs/grasp_venv/bin/activate
 
 ```
 ## check python, pytorch+cu version
+## modify the py38_cu117_pyt200 to corresponding version
 ## download https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html accrodingly
 pip install pytorch3d-0.7.3-cp38-cp38-linux_x86_64.whl
 ```
@@ -35,3 +36,4 @@ in *train_helper.py* to
 - download SAGA 
 - pip install requirements_local.txt
 - follow instructions in SAGA repo
+- after inference done, download results folder into local code base to use vis_pose.py to show them.
