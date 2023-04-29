@@ -1,15 +1,14 @@
-numpy
-pillow
-tqdm
-trimesh
-loguru==0.5.3
-matplotlib
-dotmap
-omegaconf
-protobuf==3.8
+torch
+torchvision
+torchaudio
+human-body-prior
 smplx
+tqdm
+numpy
+pytorch-ignite
 
 git+https://github.com/otaheri/chamfer_distance.git
 git+https://github.com/otaheri/MANO.git
 git+https://github.com/otaheri/bps_torch.git
 git+https://github.com/MPI-IS/mesh.git
+git+https://github.com/vchoutas/smplx
