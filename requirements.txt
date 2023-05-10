@@ -7,6 +7,7 @@ tqdm
 numpy
 einops
 pytorch-ignite
+lightning
 typing_extensions
 git+https://github.com/otaheri/chamfer_distance.git
 git+https://github.com/otaheri/MANO.git
