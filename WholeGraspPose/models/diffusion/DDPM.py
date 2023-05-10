@@ -372,7 +372,10 @@ class DDPM(pl.LightningModule):
         :param k:
         :return:
         """
-        x = batch
+        if len(batch) == 1:
+            x = batch[0]
+        else:
+            x = batch
         assert len(x.shape) == 2
 
         x = x.to(memory_format=torch.contiguous_format).float()
@@ -384,11 +387,11 @@ class DDPM(pl.LightningModule):
         :param batch:
         :return:
         """
-        # x = self.get_input(batch, self.first_stage_key)
-        loss, loss_dict = self(batch)
+        x = self.get_input(batch, self.first_stage_key)
+        loss, loss_dict = self(x)
         return loss, loss_dict
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_idx):
         loss, loss_dict = self.shared_step(batch)
 
         self.log_dict(loss_dict, prog_bar=True,
