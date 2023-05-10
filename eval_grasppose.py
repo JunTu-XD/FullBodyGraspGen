@@ -19,6 +19,8 @@ from WholeGraspPose.trainer import Trainer
 
 from eval_metrics import evaluate
 
+from WholeGraspPose.data.dataloader import LoadData
+
 #### inference
 def load_object_data_random(object_name, n_samples):
     mesh_base = './dataset/contact_meshes'
@@ -92,6 +94,20 @@ def load_object_data_uniform_sample(object_name, n_samples):
     transf_transl = transf_transl.to(grabpose.device)
     return {'verts_object':verts_object, 'normal_object': normal_object, 'global_orient':global_orient, 'global_orient_rotmat':global_orient_rotmat, 'feat_object':feat_object, 'transf_transl':transf_transl}
 
+def load_object_data_from_test_set(object_name, n_object_samples, gender_class):
+    data_path = './dataset/GraspPose'
+    ds_test = LoadData(dataset_dir=data_path, ds_name='test', gender=gender_class, motion_intent=False, object_class=object_name)
+    rnd_frames = np.linspace(0, len(ds_test)-1, n_object_samples)
+    rand_test_data = ds_test[rnd_frames]
+    obj_data = {}
+    obj_data['verts_object'] = rand_test_data['verts_object'].to(grabpose.device)
+    obj_data['feat_object'] = rand_test_data['feat_object'].to(grabpose.device)
+    obj_data['transf_transl'] = rand_test_data['transf_transl'].to(grabpose.device)
+    obj_data['global_orient'] = rand_test_data['global_orient_object']
+    obj_data['global_orient_rotmat'] = batch_rodrigues(obj_data['global_orient'].view(-1, 3)).to(grabpose.device)
+    obj_data['normal_object'] = rand_test_data['normal_object']
+    return obj_data
+
 def inference(grabpose, obj, n_samples, n_rand_samples, object_type, save_dir):
     """ prepare test object data: [verts_object, feat_object(normal + rotmat), transf_transl] """
     ### object centered
@@ -100,6 +116,8 @@ def inference(grabpose, obj, n_samples, n_rand_samples, object_type, save_dir):
         obj_data = load_object_data_uniform_sample(obj, n_samples)
     elif object_type == 'random':
         obj_data = load_object_data_random(obj, n_samples)
+    elif object_type == 'testset_random':
+        obj_data = load_object_data_from_test_set(obj, n_samples, grabpose.cfg.gender)
     obj_data['feat_object'] = obj_data['feat_object'].permute(0,2,1)
     obj_data['verts_object'] = obj_data['verts_object'].permute(0,2,1)
 
@@ -253,7 +271,7 @@ if __name__ == '__main__':
                         help='The path to the folder that contains grabpose data')
 
     parser.add_argument('--objects', default = ['mug','camera','toothpaste','wineglass','fryingpan','binoculars'], type=list, # 6 objects for test (in SAGA paper)
-                        help='The list of all the objects for metrics evaluation')
+                        help='The list of all the objects for metrics evaluation') 
 
     parser.add_argument('--config_path', default = None, type=str,
                         help='The path to the confguration of the trained grabpose model')
@@ -268,7 +286,7 @@ if __name__ == '__main__':
                         help='The number of object samples of this object')
 
     parser.add_argument('--type_object_samples', default = 'random', type=str,
-                        help='For the given object mesh, we provide two types of object heights and orientation sampling mode: random / uniform')
+                        help='For the given object mesh, we provide two types of object heights and orientation sampling mode: random / uniform / testset_random')
 
     parser.add_argument('--n_rand_samples_per_object', default = 1, type=int,
                         help='The number of whole-body poses random samples generated per object')
@@ -352,8 +370,4 @@ if __name__ == '__main__':
     with open(output_path, "w") as outfile:
         json.dump(output, outfile)
     print("The final evaluation results have been written to {}".format(output_path))
-
-    
-            
-
-
+ 

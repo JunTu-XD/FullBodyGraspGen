@@ -1,0 +1,22 @@
+#!/bin/bash
+
+#SBATCH -n 16                              # Number of cores
+#SBATCH --time=72:00:00                    # hours:minutes:seconds
+#SBATCH --mem-per-cpu=32000
+#SBATCH --tmp=4000                         # per node!!
+#SBATCH --gpus=1                           # Other options are: --gpus=gtx_1080_ti:1  --gpus=rtx_2080_ti:1
+#SBATCH --job-name=baseline_eval
+#SBATCH --output=./jobs/baseline_eval.out
+#SBATCH --error=./jobs/baseline_eval.err
+
+
+# env2lmod
+#module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0
+#conda activate grasp_conda ## change conda name accordingly
+#python opt_grasppose.py --exp_name pretrained_male --gender male --pose_ckpt_path pretrained/pretrained_model/male_grasppose_model.pt --object camera --n_object_samples 10
+
+source /cluster/scratch/yaqqin/venvs/saga_venv/bin/activate
+module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy
+
+# for evaluaton of pretrained_model, take 30 different object poses from GRAB test set per object class, and generate 5 random samples per object, test for both male and female
+python eval_grasppose.py --exp_name saga_baseline_eval --pose_ckpt_folder pretrained_model --n_object_samples 30 --n_rand_samples_per_object 5 --type_object_samples testset_random

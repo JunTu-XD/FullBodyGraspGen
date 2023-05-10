@@ -147,22 +147,23 @@ def intersection_eval(mesh0, mesh1, res=0.005, scale=1., trans=None, visualize_f
     contact = int(mesh_mesh_distance<0) # 1: contact
     return vol, depth, contact
 
-def diversity_eval(mesh_list):
+def diversity_eval(marker_samples):
     """ Average L2 distance between all pairs of grasp samples to measure diversity within samples
     args:
-        mesh_list: list of bogy meshe samples from the ONE given object scene
+        marker_samples: list of body marker samples from the ONE given object scene
     returns:
         diversity: APD of these samples
     """
-    n_samples = len(mesh_list)
-    if n_samples == 1:
+    if marker_samples.shape[0] == 1:
         return 0.0
-    samples_array = []
-    for i in range(n_samples):
-        samples_array.append(np.asarray(mesh_list[i].vertices).reshape(-1))
-    samples_array = np.stack(samples_array) # (n_samples, n_verts * 3)
-    dist = pdist(samples_array) # len(dist) = n_samples * (n_samples-1) / 2
-    diversity = np.mean(dist) # convert cm to m
+    # samples_array = []
+    # for i in range(n_samples):
+    #     samples_array.append(np.asarray(mesh_list[i].vertices).reshape(-1))
+    # samples_array = np.stack(samples_array) # (n_samples, n_verts * 3)
+    # dist = pdist(samples_array) # len(dist) = n_samples * (n_samples-1) / 2
+    # diversity = np.mean(dist) # convert cm to m
+    dist = pdist(marker_samples.reshape(marker_samples.shape[0], -1))
+    diversity = dist.mean().item()
     return diversity
 
 def evaluate(body_model_path, contact_meshes_path, load_path, gender, object_name, n_rand_samples_per_object):
@@ -183,12 +184,18 @@ def evaluate(body_model_path, contact_meshes_path, load_path, gender, object_nam
     """
     result_path = os.path.join(load_path, "fitting_results.npz")
     data = np.load(result_path, allow_pickle=True)
-    n_samples = len(data['markers']) # 10
+    body_markers = data['markers']
+    n_samples = body_markers.shape[0] # 10
 
     # Prepare the meshes of objects & bodies
     object_mesh = get_object_mesh(contact_meshes_path, object_name, 'GRAB', data['object'][()]['transl'], data['object'][()]['global_orient'], n_samples)
     body_mesh, _ = get_body_mesh(body_model_path, data['body'][()], gender, n_samples)
 
+    # compute the apd, need to group all samples from one object scene
+    apd = []
+    for i in range(0, n_samples, n_rand_samples_per_object):
+        apd.append(diversity_eval(body_markers[i:i+n_rand_samples_per_object]))
+    
     # compute interpenetration volume & depth
     inter_vol, inter_depth, contact = [], [], []
     for i in range(n_samples):
@@ -197,18 +204,13 @@ def evaluate(body_model_path, contact_meshes_path, load_path, gender, object_nam
         inter_depth.append(depth_i)
         contact.append(contact_i)
     
-    # compute the apd, need to group all samples from one object scene
-    apd = []
-    for i in range(0, n_samples, n_rand_samples_per_object):
-        apd.append(diversity_eval(body_mesh[i:i+n_rand_samples_per_object]))
-    
-    print("=================================================")
-    print("Evaluation results for {} and {} with {} samples:".format(gender, object_name, n_samples))
-    print("AVG_APD: {}".format(np.mean(apd)))
-    print("AVG_inter_vol: {}".format(np.mean(inter_vol)))
-    print("AVG_inter_depth: {}".format(np.mean(inter_depth)))
-    print("contact_ratio: {}".format(np.mean(contact)))
-    print("=================================================")
+    # print("=================================================")
+    # print("Evaluation results for {} and {} with {} samples:".format(gender, object_name, n_samples))
+    # print("AVG_APD: {}".format(np.mean(apd)))
+    # print("AVG_inter_vol: {}".format(np.mean(inter_vol)))
+    # print("AVG_inter_depth: {}".format(np.mean(inter_depth)))
+    # print("contact_ratio: {}".format(np.mean(contact)))
+    # print("=================================================")
 
     # construct the output dict
     output = dict()
@@ -216,6 +218,8 @@ def evaluate(body_model_path, contact_meshes_path, load_path, gender, object_nam
     output['inter_vol'] = inter_vol
     output['inter_depth'] = inter_depth
     output['contact'] = contact
+    output['n_samples'] = n_samples
+    output['n_rand_samples_per_object'] = n_rand_samples_per_object
 
     # write to the json file
     output_path = os.path.join(load_path,"eval_fitting.json")
