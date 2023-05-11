@@ -57,3 +57,4 @@ def test_train():
     t.fit(ddpm, train_loader)
     # loss_2 = ddpm.training_step(x_0, batch_idx=-1)
     print(f"loss {loss} loss2 {ddpm(x_0)}")
+

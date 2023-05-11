@@ -19,6 +19,7 @@ from tqdm import tqdm
 from torchvision.utils import make_grid
 from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
+from WholeGraspPose.models.diffusion.Eps import Eps
 from WholeGraspPose.models.diffusion.utils import exists, default, mean_flat, count_params, instantiate_from_config
 from WholeGraspPose.models.diffusion.ema import LitEma
 from WholeGraspPose.models.diffusion.distributions import normal_kl, DiagonalGaussianDistribution
@@ -43,7 +44,7 @@ def uniform_on_device(r1, r2, shape, device):
 class DDPM(pl.LightningModule):
     # classic DDPM with Gaussian diffusion
     def __init__(self,
-                 model,
+                 model=None,
                  timesteps=1000,
                  beta_schedule="linear",
                  loss_type="l2",
@@ -80,7 +81,7 @@ class DDPM(pl.LightningModule):
         self.first_stage_key = first_stage_key
         self.x_dim = x_dim
         self.use_positional_encodings = use_positional_encodings
-        self.model = model
+        self.model = Eps(512)
         count_params(self.model, verbose=True)
         self.use_ema = use_ema
         if self.use_ema:
@@ -109,6 +110,8 @@ class DDPM(pl.LightningModule):
         self.logvar = torch.full(fill_value=logvar_init, size=(self.num_timesteps,))
         if self.learn_logvar:
             self.logvar = nn.Parameter(self.logvar, requires_grad=True)
+
+
 
     def register_schedule(self, given_betas=None, beta_schedule="linear", timesteps=1000,
                           linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
@@ -269,7 +272,7 @@ class DDPM(pl.LightningModule):
         return model_mean, posterior_variance, posterior_log_variance
 
     @torch.no_grad()
-    def p_sample(self, x, t, clip_denoised=True, repeat_noise=False):
+    def p_sample(self, x, t, condition=None, clip_denoised=True, repeat_noise=False):
         b, *_, device = *x.shape, x.device
         model_mean, _, model_log_variance = self.p_mean_variance(x=x, t=t, clip_denoised=clip_denoised)
         noise = noise_like(x.shape, device, repeat_noise)
@@ -278,24 +281,24 @@ class DDPM(pl.LightningModule):
         return model_mean + nonzero_mask * (0.5 * model_log_variance).exp() * noise
 
     @torch.no_grad()
-    def p_sample_loop(self, shape, return_intermediates=False):
+    def p_sample_loop(self, shape, condition, return_intermediates=False):
         device = self.betas.device
         b = shape[0]
-        img = torch.randn(shape, device=device)
-        intermediates = [img]
+        x_t_minus_1 = torch.randn(shape, device=device)
+        intermediates = [x_t_minus_1]
         for i in tqdm(reversed(range(0, self.num_timesteps)), desc='Sampling t', total=self.num_timesteps):
-            img = self.p_sample(img, torch.full((b,), i, device=device, dtype=torch.long),
+            x_t_minus_1 = self.p_sample(x_t_minus_1, torch.full((b,), i,  device=device, dtype=torch.long), condition=condition,
                                 clip_denoised=self.clip_denoised)
             if i % self.log_every_t == 0 or i == self.num_timesteps - 1:
-                intermediates.append(img)
+                intermediates.append(x_t_minus_1)
         if return_intermediates:
-            return img, intermediates
-        return img
+            return x_t_minus_1, intermediates
+        return x_t_minus_1
 
     @torch.no_grad()
-    def sample(self, batch_size=16, return_intermediates=False):
+    def sample(self, batch_size=16, condition = None, return_intermediates=False):
         x_dim = self.x_dim
-        return self.p_sample_loop((batch_size, x_dim),
+        return self.p_sample_loop((batch_size, x_dim), condition,
                                   return_intermediates=return_intermediates)
 
     def q_sample(self, x_start, t, noise=None):
@@ -325,7 +328,7 @@ class DDPM(pl.LightningModule):
 
         return loss
 
-    def p_losses(self, x_start, t, noise=None):
+    def p_losses(self, x_start, t, condition=None, noise=None):
         """
         LDM Appendix B. Detailed Information on Denoising Diffusion Mod
         :param x_start:
@@ -335,7 +338,7 @@ class DDPM(pl.LightningModule):
         """
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        model_out = self.model(x_noisy, t)
+        model_out = self.model(x_noisy, t, condition)
 
         loss_dict = {}
         if self.parameterization == "eps":
@@ -361,26 +364,27 @@ class DDPM(pl.LightningModule):
         loss_dict.update({f'{log_prefix}/loss': loss})
 
         return loss, loss_dict
+    def construct_condition(self, obj_feature, transf_transl=None, obj_xyz=None, **kwargs):
+        condition = obj_feature
+        return condition
 
-    def forward(self, x, *args, **kwargs):
+    def forward(self, x, condition, *args, **kwargs):
         t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
-        return self.p_losses(x, t, *args, **kwargs)
+        return self.p_losses(x, t, condition=condition, *args, **kwargs)
 
     def get_input(self, batch, k):
         """
-        :param batch:
+        :param batch: {"condition":, "latent":}
         :param k:
         :return:
         """
-        if len(batch) == 1:
-            x = batch[0]
-        else:
-            x = batch
+
+        x = batch[k]
         assert len(x.shape) == 2
 
         x = x.to(memory_format=torch.contiguous_format).float()
         return x
-
+## todo remove or modify
     def shared_step(self, batch):
         """
         shared in training and validation step
@@ -494,6 +498,7 @@ class LatentDiffusion(DDPM):
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys)
             self.restarted_from_ckpt = True
+
 
     def make_cond_schedule(self, ):
         self.cond_ids = torch.full(size=(self.num_timesteps,), fill_value=self.num_timesteps - 1, dtype=torch.long)
@@ -625,57 +630,7 @@ class LatentDiffusion(DDPM):
             weighting = weighting * L_weighting
         return weighting
 
-    def get_fold_unfold(self, x, kernel_size, stride, uf=1, df=1):  # todo load once not every time, shorten code
-        """
-        :param x: img of size (bs, c, h, w)
-        :return: n img crops of size (n, bs, c, kernel_size[0], kernel_size[1])
-        """
-        bs, nc, h, w = x.shape
 
-        # number of crops in image
-        Ly = (h - kernel_size[0]) // stride[0] + 1
-        Lx = (w - kernel_size[1]) // stride[1] + 1
-
-        if uf == 1 and df == 1:
-            fold_params = dict(kernel_size=kernel_size, dilation=1, padding=0, stride=stride)
-            unfold = torch.nn.Unfold(**fold_params)
-
-            fold = torch.nn.Fold(output_size=x.shape[2:], **fold_params)
-
-            weighting = self.get_weighting(kernel_size[0], kernel_size[1], Ly, Lx, x.device).to(x.dtype)
-            normalization = fold(weighting).view(1, 1, h, w)  # normalizes the overlap
-            weighting = weighting.view((1, 1, kernel_size[0], kernel_size[1], Ly * Lx))
-
-        elif uf > 1 and df == 1:
-            fold_params = dict(kernel_size=kernel_size, dilation=1, padding=0, stride=stride)
-            unfold = torch.nn.Unfold(**fold_params)
-
-            fold_params2 = dict(kernel_size=(kernel_size[0] * uf, kernel_size[0] * uf),
-                                dilation=1, padding=0,
-                                stride=(stride[0] * uf, stride[1] * uf))
-            fold = torch.nn.Fold(output_size=(x.shape[2] * uf, x.shape[3] * uf), **fold_params2)
-
-            weighting = self.get_weighting(kernel_size[0] * uf, kernel_size[1] * uf, Ly, Lx, x.device).to(x.dtype)
-            normalization = fold(weighting).view(1, 1, h * uf, w * uf)  # normalizes the overlap
-            weighting = weighting.view((1, 1, kernel_size[0] * uf, kernel_size[1] * uf, Ly * Lx))
-
-        elif df > 1 and uf == 1:
-            fold_params = dict(kernel_size=kernel_size, dilation=1, padding=0, stride=stride)
-            unfold = torch.nn.Unfold(**fold_params)
-
-            fold_params2 = dict(kernel_size=(kernel_size[0] // df, kernel_size[0] // df),
-                                dilation=1, padding=0,
-                                stride=(stride[0] // df, stride[1] // df))
-            fold = torch.nn.Fold(output_size=(x.shape[2] // df, x.shape[3] // df), **fold_params2)
-
-            weighting = self.get_weighting(kernel_size[0] // df, kernel_size[1] // df, Ly, Lx, x.device).to(x.dtype)
-            normalization = fold(weighting).view(1, 1, h // df, w // df)  # normalizes the overlap
-            weighting = weighting.view((1, 1, kernel_size[0] // df, kernel_size[1] // df, Ly * Lx))
-
-        else:
-            raise NotImplementedError
-
-        return fold, unfold, normalization, weighting
 
     @torch.no_grad()
     def get_input(self, batch, k, return_first_stage_outputs=False, force_c_encode=False,
@@ -1166,15 +1121,6 @@ class LatentDiffusion(DDPM):
                 }]
             return [opt], scheduler
         return opt
-
-    @torch.no_grad()
-    def to_rgb(self, x):
-        x = x.float()
-        if not hasattr(self, "colorize"):
-            self.colorize = torch.randn(3, x.shape[1], 1, 1).to(x)
-        x = nn.functional.conv2d(x, weight=self.colorize)
-        x = 2. * (x - x.min()) / (x.max() - x.min()) - 1.
-        return x
 
 
 class DiffusionWrapper(pl.LightningModule):

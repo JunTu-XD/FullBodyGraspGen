@@ -2,7 +2,10 @@ from torch import nn
 
 
 class Eps(nn.Module):
-    def __init__(self):
+    def __init__(self, D):
         super.__init__()
-    def forward(self, x, t):
-        pass
+        self.model = nn.Sequential(*[nn.Linear(D, D)])
+
+    def forward(self, x, condition, t):
+        ## x + t encoding
+        return self.model(x)
