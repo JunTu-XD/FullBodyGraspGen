@@ -1,3 +1,6 @@
+import argparse
+import os
+
 import torch
 from pytorch_lightning import Trainer
 from torch import nn
@@ -6,6 +9,8 @@ from tqdm import tqdm
 
 from WholeGraspPose.models.diffusion.DDPM import DDPM
 from WholeGraspPose.models.diffusion.Eps import Eps
+from WholeGraspPose.models.models import FullBodyGraspNet
+from utils.cfg_parser import Config
 
 T = 11
 
@@ -59,3 +64,30 @@ def test_train():
     print (f"\nloss delta {(loss - loss_2)}")
     assert (loss - loss_2) > torch.abs(loss-loss_1)
 
+def test_FBGrasp_Load():
+    cwd = os.getcwd()
+    default_cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'
+
+    cfg = {
+        'batch_size':64,
+        'n_workers': 2,
+        'use_multigpu': False,
+        'kl_coef': 0.5,
+        'dataset_dir': "/cluster/work/cvl/wuyan/data/GRAB-series/GrabPose_r_fullbody/data",
+        'base_dir': cwd,
+        'work_dir': "./",
+        'base_lr': 5e-4,
+        'best_net': None,
+        'gender': None,
+        'exp_name': "test_exp",
+    }
+
+    cfg = Config(default_cfg_path=default_cfg_path, **cfg)
+    full_grasp_net = FullBodyGraspNet(cfg)
+
+    vars_net = [var[1] for var in full_grasp_net.named_parameters()]
+
+    net_n_params = sum(p.numel() for p in vars_net if p.requires_grad)
+    assert net_n_params == (sum(p.numel() for p in full_grasp_net.diffusion_parameters()) + sum(
+        p.numel() for p in full_grasp_net.encoder_decoder_parameters()))
+    print('\nTotal Trainable Parameters for ContactNet is %2.2f M.' % ((net_n_params) * 1e-6))

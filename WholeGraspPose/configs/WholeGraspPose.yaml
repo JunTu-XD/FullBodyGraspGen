@@ -36,3 +36,5 @@ obj_feature: 12
 pointnet_hc: 64
 continue_train: False
 data_representation: 'markers_143'     # 'joints' / 'markers_143' / 'markers_214' / 'markers_593'
+learn_logvar: False
+diffusion_base_lr: 2e-4

@@ -210,17 +210,22 @@ class FullBodyGraspNet(nn.Module):
         # encoder fusion
         self.enc_fusion = ResBlock(cfg.n_markers+self.cfg.pointnet_hc*8, cfg.n_neurons)
         ### deprecated
-        self.enc_mu = nn.Linear(cfg.n_neurons, cfg.latentD)
-        self.enc_var = nn.Linear(cfg.n_neurons, cfg.latentD)
+        # self.enc_mu = nn.Linear(cfg.n_neurons, cfg.latentD)
+        # self.enc_var = nn.Linear(cfg.n_neurons, cfg.latentD)
         ####
-        self.diffusion = DDPM(learn_logvar=cfg.learn_logvar)
         self.adaptor = nn.Linear(cfg.n_neurons, cfg.latentD)
-        self.enc_dec_modules = [self.marker_net, self.contact_net, self.pointnet, self.enc_fusion. self.adaptor]
+        self.diffusion = DDPM(learn_logvar=cfg.learn_logvar)
+        self.enc_dec_modules = [self.marker_net, self.contact_net, self.pointnet, self.enc_fusion, self.adaptor]
+        self.learn_logvar = cfg.learn_logvar
 
     def encoder_decoder_parameters(self):
         vars_net = []
         for _sub_module in self.enc_dec_modules:
-            vars_net.extend([var[1] for var in self.diffusion.named_parameters()])
+            vars_net.extend([var[1] for var in _sub_module.named_parameters()])
+
+        grad_prams = sum(p.numel() for p in vars_net if p.requires_grad)
+        all_params = sum(p.numel() for p in vars_net)
+        assert grad_prams == all_params, "SAGA encoder decoder has frozen parameters, which might unfrozen in training "
         return vars_net
 
     def freeze_enc_dec_params(self):
@@ -235,7 +240,7 @@ class FullBodyGraspNet(nn.Module):
 
     def diffusion_parameters(self):
         params = self.diffusion.model.parameters()
-        if self.learn_log_var:
+        if self.learn_logvar:
             params = list(params) + [self.diffusion.logvar]
         return params
 
@@ -266,11 +271,12 @@ class FullBodyGraspNet(nn.Module):
     def decode(self, Z, object_cond, verts_object, feat_object, transf_transl):
 
         bs = Z.shape[0]
+        _Z = self.adaptor(Z)
         # marker_branch
-        markers_xyz_pred, markers_p_pred = self.marker_net.dec(Z, object_cond, transf_transl)
+        markers_xyz_pred, markers_p_pred = self.marker_net.dec(_Z, object_cond, transf_transl)
 
         # contact branch
-        contact_pred = self.contact_net.dec(Z, object_cond, verts_object, feat_object)
+        contact_pred = self.contact_net.dec(_Z, object_cond, verts_object, feat_object)
 
         return markers_xyz_pred.view(bs, -1, 3), markers_p_pred, contact_pred
 
