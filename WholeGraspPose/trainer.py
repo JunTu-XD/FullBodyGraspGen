@@ -82,7 +82,7 @@ class Trainer:
         self.logger('Total Trainable Parameters for ContactNet is %2.2f M.' % ((net_n_params) * 1e-6))
 
         self.optimizer_net = optim.Adam(self.full_grasp_net.encoder_decoder_parameters(), lr=cfg.base_lr, weight_decay=cfg.reg_coef)
-        self.optimizer_diffusion = torch.optim.AdamW(self.full_grasp_net.diffusion_parameters(cfg.learn_logvar), lr=cfg.diffusion_base_lr)
+        self.optimizer_diffusion = torch.optim.AdamW(self.full_grasp_net.diffusion_parameters(), lr=cfg.diffusion_base_lr)
 
         self.lr_scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer_net, milestones=[20,40,60], gamma=0.5)
         self.best_loss_net = np.inf

@@ -227,7 +227,7 @@ class DDPM(nn.Module):
         posterior_log_variance_clipped = extract_into_tensor(self.posterior_log_variance_clipped, t, x_t.shape)
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
-    def p_mean_variance(self, x, t, clip_denoised: bool):
+    def p_mean_variance(self, x, t, condition, clip_denoised: bool):
         """
         p(x_t-1 | x_t, x_0, t)
         where x_0 = reconstruct by (self.model out .e.g. noise, x_t. t)
@@ -237,7 +237,7 @@ class DDPM(nn.Module):
         :return:
         model_mean, posterior_variance, posterior_log_variance
         """
-        model_out = self.model(x, t)
+        model_out = self.model(x=x, t=t, condition=condition)
         if self.parameterization == "eps":
             x_recon = self.predict_start_from_noise(x, t=t, noise=model_out)
         elif self.parameterization == "x0":
@@ -251,7 +251,7 @@ class DDPM(nn.Module):
     @torch.no_grad()
     def p_sample(self, x, t, condition=None, clip_denoised=True, repeat_noise=False):
         b, *_, device = *x.shape, x.device
-        model_mean, _, model_log_variance = self.p_mean_variance(x=x, t=t, clip_denoised=clip_denoised)
+        model_mean, _, model_log_variance = self.p_mean_variance(x=x, t=t, condition=condition, clip_denoised=clip_denoised)
         noise = noise_like(x.shape, device, repeat_noise)
         # no noise when t == 0
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
