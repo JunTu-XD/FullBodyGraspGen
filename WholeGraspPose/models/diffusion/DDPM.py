@@ -41,7 +41,7 @@ def uniform_on_device(r1, r2, shape, device):
     return (r1 - r2) * torch.rand(*shape, device=device) + r2
 
 
-class DDPM(pl.LightningModule):
+class DDPM(nn.Module):
     # classic DDPM with Gaussian diffusion
     def __init__(self,
                  model=None,
@@ -63,8 +63,6 @@ class DDPM(pl.LightningModule):
                  original_elbo_weight=0.,
                  v_posterior=0.,  # weight for choosing posterior variance as sigma = (1-v) * beta_tilde + v * beta
                  l_simple_weight=1.,
-                 conditioning_key=None,
-                 first_stage_key = "latent",
                  parameterization="eps",  # all assuming fixed variance schedules
                  scheduler_config=None,
                  use_positional_encodings=False,
@@ -78,10 +76,9 @@ class DDPM(pl.LightningModule):
         self.cond_stage_model = None
         self.clip_denoised = clip_denoised
         self.log_every_t = log_every_t
-        self.first_stage_key = first_stage_key
         self.x_dim = x_dim
         self.use_positional_encodings = use_positional_encodings
-        self.model = Eps(512)
+        self.model = Eps(D=self.x_dim)
         count_params(self.model, verbose=True)
         self.use_ema = use_ema
         if self.use_ema:
@@ -110,8 +107,7 @@ class DDPM(pl.LightningModule):
         self.logvar = torch.full(fill_value=logvar_init, size=(self.num_timesteps,))
         if self.learn_logvar:
             self.logvar = nn.Parameter(self.logvar, requires_grad=True)
-
-
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def register_schedule(self, given_betas=None, beta_schedule="linear", timesteps=1000,
                           linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
@@ -189,24 +185,6 @@ class DDPM(pl.LightningModule):
                 self.model_ema.restore(self.model.parameters())
                 if context is not None:
                     print(f"{context}: Restored training weights")
-
-    def init_from_ckpt(self, path, ignore_keys=list(), only_model=False):
-        sd = torch.load(path, map_location="cpu")
-        if "state_dict" in list(sd.keys()):
-            sd = sd["state_dict"]
-        keys = list(sd.keys())
-        for k in keys:
-            for ik in ignore_keys:
-                if k.startswith(ik):
-                    print("Deleting key {} from state_dict.".format(k))
-                    del sd[k]
-        missing, unexpected = self.load_state_dict(sd, strict=False) if not only_model else self.model.load_state_dict(
-            sd, strict=False)
-        print(f"Restored from {path} with {len(missing)} missing and {len(unexpected)} unexpected keys")
-        if len(missing) > 0:
-            print(f"Missing Keys: {missing}")
-        if len(unexpected) > 0:
-            print(f"Unexpected Keys: {unexpected}")
 
     def q_mean_variance(self, x_start, t):
         """
@@ -338,7 +316,7 @@ class DDPM(pl.LightningModule):
         """
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        model_out = self.model(x_noisy, t, condition)
+        model_out = self.model(x_noisy, t=t, condition=condition)
 
         loss_dict = {}
         if self.parameterization == "eps":
@@ -349,7 +327,7 @@ class DDPM(pl.LightningModule):
             raise NotImplementedError(f"Paramterization {self.parameterization} not yet supported")
         ## model_out [B, D]
         ## target [B, D]
-        loss = self.get_loss(model_out, target, mean=False).mean(dim=1)  # unnecessary
+        loss = self.get_loss(model_out, target, mean=False).mean(dim=1)  # unnecessary to mean
         ## loss [B, ]
         log_prefix = 'train' if self.training else 'val'
 
@@ -364,6 +342,7 @@ class DDPM(pl.LightningModule):
         loss_dict.update({f'{log_prefix}/loss': loss})
 
         return loss, loss_dict
+
     def construct_condition(self, obj_feature, transf_transl=None, obj_xyz=None, **kwargs):
         condition = obj_feature
         return condition
@@ -384,6 +363,7 @@ class DDPM(pl.LightningModule):
 
         x = x.to(memory_format=torch.contiguous_format).float()
         return x
+
 ## todo remove or modify
     def shared_step(self, batch):
         """
@@ -395,60 +375,9 @@ class DDPM(pl.LightningModule):
         loss, loss_dict = self(x)
         return loss, loss_dict
 
-    def training_step(self, batch, batch_idx):
-        loss, loss_dict = self.shared_step(batch)
-
-        self.log_dict(loss_dict, prog_bar=True,
-                      logger=True, on_step=True, on_epoch=True)
-
-        self.log("global_step", self.global_step,
-                 prog_bar=True, logger=True, on_step=True, on_epoch=False)
-
-        if self.use_scheduler:
-            lr = self.optimizers().param_groups[0]['lr']
-            self.log('lr_abs', lr, prog_bar=True, logger=True, on_step=True, on_epoch=False)
-
-        return loss
-
-    @torch.no_grad()
-    def validation_step(self, batch, batch_idx):
-        _, loss_dict_no_ema = self.shared_step(batch)
-        with self.ema_scope():
-            _, loss_dict_ema = self.shared_step(batch)
-            loss_dict_ema = {key + '_ema': loss_dict_ema[key] for key in loss_dict_ema}
-        self.log_dict(loss_dict_no_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True)
-        self.log_dict(loss_dict_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True)
-
     def on_train_batch_end(self, *args, **kwargs):
         if self.use_ema:
             self.model_ema(self.model)
-
-    def _get_rows_from_list(self, samples):
-        raise NotImplementedError()
-
-    @torch.no_grad()
-    def log_latent(self, batch, N=8, n_row=2, sample=True, return_keys=None, **kwargs):
-        """
-
-        :param batch:
-        :param N:
-        :param n_row:
-        :param sample:
-        :param return_keys:
-        :param kwargs:
-        :return:
-        optional: log["samples"] = samples
-        log["denoise_row"] = self._get_rows_from_list(denoise_row)
-        """
-        raise NotImplementedError()
-
-    def configure_optimizers(self):
-        lr = self.learning_rate
-        params = list(self.model.parameters())
-        if self.learn_logvar:
-            params = params + [self.logvar]
-        opt = torch.optim.AdamW(params, lr=lr)
-        return opt
 
 
 class LatentDiffusion(DDPM):

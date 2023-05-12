@@ -170,7 +170,7 @@ class Trainer:
 
             ## todo zero_grad two optimizer
             self.optimizer_net.zero_grad()
-
+            self.optimizer_diffusion.zero_grad()
             if self.fit_net:
                 dorig['verts_object'] = dorig['verts_object'].permute(0,2,1)
                 dorig['feat_object'] = dorig['feat_object'].permute(0,2,1)
