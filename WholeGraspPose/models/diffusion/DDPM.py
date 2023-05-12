@@ -17,7 +17,6 @@ from contextlib import contextmanager
 from functools import partial
 from tqdm import tqdm
 from torchvision.utils import make_grid
-from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
 from WholeGraspPose.models.diffusion.Eps import Eps
 from WholeGraspPose.models.diffusion.utils import exists, default, mean_flat, count_params, instantiate_from_config
@@ -434,7 +433,6 @@ class LatentDiffusion(DDPM):
         ids = torch.round(torch.linspace(0, self.num_timesteps - 1, self.num_timesteps_cond)).long()
         self.cond_ids[:self.num_timesteps_cond] = ids
 
-    @rank_zero_only
     @torch.no_grad()
     def on_train_batch_start(self, batch, batch_idx, dataloader_idx):
         # only for very first batch
