@@ -7,6 +7,7 @@ tqdm
 numpy
 pytorch-ignite
 typing_extensions
+libigl
 git+https://github.com/otaheri/chamfer_distance.git
 git+https://github.com/otaheri/MANO.git
 git+https://github.com/otaheri/bps_torch.git

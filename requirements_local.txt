@@ -9,6 +9,7 @@ typing_extensions
 pytorch-ignite
 pytorch3d
 open3d
+libigl
 
 git+https://github.com/otaheri/chamfer_distance.git
 git+https://github.com/otaheri/MANO.git
