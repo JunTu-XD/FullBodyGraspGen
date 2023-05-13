@@ -69,6 +69,8 @@ class DDPM(nn.Module):
                  logvar_init=0.,
                  ):
         super().__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         assert parameterization in ["eps", "x0"], 'currently only supporting "eps" and "x0"'
         self.parameterization = parameterization
         print(f"{self.__class__.__name__}: Running in {self.parameterization}-prediction mode")
@@ -103,10 +105,10 @@ class DDPM(nn.Module):
         self.loss_type = loss_type
 
         self.learn_logvar = learn_logvar
-        self.logvar = torch.full(fill_value=logvar_init, size=(self.num_timesteps,))
+        self.logvar = torch.full(fill_value=logvar_init, size=(self.num_timesteps,), device=self.device)
         if self.learn_logvar:
             self.logvar = nn.Parameter(self.logvar, requires_grad=True)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
 
     def register_schedule(self, given_betas=None, beta_schedule="linear", timesteps=1000,
                           linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
@@ -315,7 +317,7 @@ class DDPM(nn.Module):
 
         return loss
 
-    def p_losses(self, x_start, t, condition=None, noise=None):
+    def p_losses(self, x_start, t, condition=None, noise=None, **kwargs):
         """
         LDM Appendix B. Detailed Information on Denoising Diffusion Mod
         :param condition:
@@ -338,7 +340,7 @@ class DDPM(nn.Module):
         else:
             raise NotImplementedError()
 
-        loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2, 3])
+        loss_simple = self.get_loss(model_output, target, mean=False).mean([1])
         loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
 
         logvar_t = self.logvar[t].to(self.device)
@@ -350,11 +352,11 @@ class DDPM(nn.Module):
 
         loss = self.l_simple_weight * loss.mean()
 
-        loss_vlb = self.get_loss(model_output, target, mean=False).mean(dim=(1, 2, 3))
+        loss_vlb = self.get_loss(model_output, target, mean=False).mean(dim=(1))
         loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
         loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
         loss += (self.original_elbo_weight * loss_vlb)
-        loss_dict.update({f'{prefix}/loss': loss})
+        loss_dict.update({f'loss_total': loss})
 
         return loss, loss_dict
 
