@@ -56,11 +56,11 @@ class DDIMSampler(object):
     def sample(self,
                S,
                batch_size,
-               shape,
+               shape, # the dim of the latent embedding -> 512
                conditioning=None,
                callback=None,
                normals_sequence=None,
-               img_callback=None,
+               #img_callback=None,
                quantize_x0=False,
                eta=0.,
                mask=None,
@@ -88,13 +88,13 @@ class DDIMSampler(object):
 
         self.make_schedule(ddim_num_steps=S, ddim_eta=eta, verbose=verbose)
         # sampling
-        C, H, W = shape
-        size = (batch_size, C, H, W)
+        x_dim = shape 
+        size = (batch_size, x_dim)
         print(f'Data shape for DDIM sampling is {size}, eta {eta}')
 
         samples, intermediates = self.ddim_sampling(conditioning, size,
                                                     callback=callback,
-                                                    img_callback=img_callback,
+                                                    # img_callback=img_callback,
                                                     quantize_denoised=quantize_x0,
                                                     mask=mask, x0=x0,
                                                     ddim_use_original_steps=False,
@@ -107,21 +107,25 @@ class DDIMSampler(object):
                                                     unconditional_guidance_scale=unconditional_guidance_scale,
                                                     unconditional_conditioning=unconditional_conditioning,
                                                     )
-        return samples, intermediates
+        return samples, intermediates # samples: (batch, latent_dim)
 
     @torch.no_grad()
     def ddim_sampling(self, cond, shape,
                       x_T=None, ddim_use_original_steps=False,
                       callback=None, timesteps=None, quantize_denoised=False,
-                      mask=None, x0=None, img_callback=None, log_every_t=100,
+                      mask=None, x0=None,
+                      # img_callback=None, 
+                      log_every_t=100,
                       temperature=1., noise_dropout=0., score_corrector=None, corrector_kwargs=None,
                       unconditional_guidance_scale=1., unconditional_conditioning=None,):
+        """ DDIM sampling by timesteps to reconstruct the latent representation from random noise (x_T)
+        """
         device = self.model.betas.device
-        b = shape[0]
+        b = shape[0] # batch size
         if x_T is None:
-            img = torch.randn(shape, device=device)
+            latent = torch.randn(shape, device=device) # if x_T is not specified, then sample from Gaussian
         else:
-            img = x_T
+            latent = x_T # (b, 512) random latent noise
 
         if timesteps is None:
             timesteps = self.ddpm_num_timesteps if ddim_use_original_steps else self.ddim_timesteps
@@ -129,7 +133,7 @@ class DDIMSampler(object):
             subset_end = int(min(timesteps / self.ddim_timesteps.shape[0], 1) * self.ddim_timesteps.shape[0]) - 1
             timesteps = self.ddim_timesteps[:subset_end]
 
-        intermediates = {'x_inter': [img], 'pred_x0': [img]}
+        intermediates = {'x_inter': [latent], 'pred_x0': [latent]}
         time_range = reversed(range(0,timesteps)) if ddim_use_original_steps else np.flip(timesteps)
         total_steps = timesteps if ddim_use_original_steps else timesteps.shape[0]
         print(f"Running DDIM Sampling with {total_steps} timesteps")
@@ -142,33 +146,36 @@ class DDIMSampler(object):
 
             if mask is not None:
                 assert x0 is not None
-                img_orig = self.model.q_sample(x0, ts)  # TODO: deterministic forward pass?
-                img = img_orig * mask + (1. - mask) * img
+                latent_orig = self.model.q_sample(x0, ts)  # TODO: deterministic forward pass?
+                latent = latent_orig * mask + (1. - mask) * latent
 
-            outs = self.p_sample_ddim(img, cond, ts, index=index, use_original_steps=ddim_use_original_steps,
+            outs = self.p_sample_ddim(latent, cond, ts, index=index, use_original_steps=ddim_use_original_steps,
                                       quantize_denoised=quantize_denoised, temperature=temperature,
                                       noise_dropout=noise_dropout, score_corrector=score_corrector,
                                       corrector_kwargs=corrector_kwargs,
                                       unconditional_guidance_scale=unconditional_guidance_scale,
                                       unconditional_conditioning=unconditional_conditioning)
-            img, pred_x0 = outs
+            latent, pred_x0 = outs
             if callback: callback(i)
-            if img_callback: img_callback(pred_x0, i)
+            # if img_callback: img_callback(pred_x0, i)
 
             if index % log_every_t == 0 or index == total_steps - 1:
-                intermediates['x_inter'].append(img)
+                intermediates['x_inter'].append(latent)
                 intermediates['pred_x0'].append(pred_x0)
 
-        return img, intermediates
+        return latent, intermediates
 
     @torch.no_grad()
     def p_sample_ddim(self, x, c, t, index, repeat_noise=False, use_original_steps=False, quantize_denoised=False,
                       temperature=1., noise_dropout=0., score_corrector=None, corrector_kwargs=None,
                       unconditional_guidance_scale=1., unconditional_conditioning=None):
+        """ one step DDIM sampling to get x_T-1 from x_T
+        """
         b, *_, device = *x.shape, x.device
 
         if unconditional_conditioning is None or unconditional_guidance_scale == 1.:
-            e_t = self.model.apply_model(x, t, c)
+            # e_t = self.model.apply_model(x, t, c) # the prediced noise at t by Unet
+            e_t = self.model.model(x, t, c) # for testing, directly use the Unet
         else:
             x_in = torch.cat([x] * 2)
             t_in = torch.cat([t] * 2)
@@ -185,15 +192,15 @@ class DDIMSampler(object):
         sqrt_one_minus_alphas = self.model.sqrt_one_minus_alphas_cumprod if use_original_steps else self.ddim_sqrt_one_minus_alphas
         sigmas = self.model.ddim_sigmas_for_original_num_steps if use_original_steps else self.ddim_sigmas
         # select parameters corresponding to the currently considered timestep
-        a_t = torch.full((b, 1, 1, 1), alphas[index], device=device)
-        a_prev = torch.full((b, 1, 1, 1), alphas_prev[index], device=device)
-        sigma_t = torch.full((b, 1, 1, 1), sigmas[index], device=device)
-        sqrt_one_minus_at = torch.full((b, 1, 1, 1), sqrt_one_minus_alphas[index],device=device)
+        a_t = torch.full((b, 1), alphas[index], device=device)
+        a_prev = torch.full((b, 1), alphas_prev[index], device=device)
+        sigma_t = torch.full((b, 1), sigmas[index], device=device)
+        sqrt_one_minus_at = torch.full((b, 1), sqrt_one_minus_alphas[index],device=device)
 
         # current prediction for x_0
         pred_x0 = (x - sqrt_one_minus_at * e_t) / a_t.sqrt()
         if quantize_denoised:
-            pred_x0, _, *_ = self.model.first_stage_model.quantize(pred_x0)
+            pred_x0, _, *_ = self.model.first_stage_model.quantize(pred_x0) # to test
         # direction pointing to x_t
         dir_xt = (1. - a_prev - sigma_t**2).sqrt() * e_t
         noise = sigma_t * noise_like(x.shape, device, repeat_noise) * temperature
