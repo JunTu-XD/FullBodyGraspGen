@@ -84,6 +84,10 @@ def test_FBGrasp_Load():
 
     cfg = Config(default_cfg_path=default_cfg_path, **cfg)
     full_grasp_net = FullBodyGraspNet(cfg)
+    check_params = torch.detach_copy(full_grasp_net.contact_net.dec_fc1.weight)
+    full_grasp_net.load_state_dict(torch.load(cfg.use_pretrained, map_location="cpu"), strict=False)
+    load_params = full_grasp_net.contact_net.dec_fc1.weight
+    assert (check_params-load_params).norm() >0
 
     vars_net = [var[1] for var in full_grasp_net.named_parameters()]
 
@@ -91,3 +95,4 @@ def test_FBGrasp_Load():
     assert net_n_params == (sum(p.numel() for p in full_grasp_net.diffusion_parameters()) + sum(
         p.numel() for p in full_grasp_net.encoder_decoder_parameters()))
     print('\nTotal Trainable Parameters for ContactNet is %2.2f M.' % ((net_n_params) * 1e-6))
+

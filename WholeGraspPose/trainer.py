@@ -68,7 +68,6 @@ class Trainer:
         self.logger(cfg)
 
         self.load_data(cfg, inference)
-
         self.full_grasp_net = FullBodyGraspNet(cfg).to(self.device)
 
         if cfg.use_multigpu:
@@ -95,6 +94,9 @@ class Trainer:
         if cfg.best_net is not None:
             self._get_net_model().load_state_dict(torch.load(cfg.best_net, map_location=self.device), strict=False)
             self.logger('Restored ContactNet model from %s' % cfg.best_net)
+        elif cfg.use_pretrained is not None:
+            self._get_net_model().load_state_dict(torch.load(cfg.use_pretrained, map_location=self.device), strict=False)
+            self.logger('Restored Pretrained Grasp model from %s' % cfg.use_pretrained)
 
         if cfg.continue_train:
             self.full_grasp_net, self.optimizer_net, self.start_epoch = self.load_ckp(checkpoint, self._get_net_model(), self.optimizer_net)

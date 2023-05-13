@@ -57,6 +57,9 @@ if __name__ == '__main__':
         'best_net': None,
         'gender': args.gender,
         'exp_name': args.exp_name,
+        'use_pretrained': "pretrained_model/male_grasppose_model.pt",
+        'train_1_stage': False,
+        'train_2_stage': True
     }
 
     cfg = Config(default_cfg_path=default_cfg_path, **cfg)
