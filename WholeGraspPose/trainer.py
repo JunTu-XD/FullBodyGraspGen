@@ -187,6 +187,7 @@ class Trainer:
                 if train_second_stage:
                     drec_net, diffusion_input = self.full_grasp_net(**dorig, return_diffusion_input=True)
                     loss_diffusion, cur_loss_dict_net = self.full_grasp_net.diffusion(**diffusion_input)
+
                     loss_diffusion.backward()
                     self.optimizer_diffusion.step()
 
