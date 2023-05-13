@@ -268,14 +268,24 @@ class DDPM(nn.Module):
                                 clip_denoised=self.clip_denoised)
             if i % self.log_every_t == 0 or i == self.num_timesteps - 1:
                 intermediates.append(x_t_minus_1)
+        ## now it's x_0
         if return_intermediates:
             return x_t_minus_1, intermediates
         return x_t_minus_1
 
     @torch.no_grad()
-    def sample(self, batch_size=16, condition = None, return_intermediates=False):
+    def sample(self, batch_size=16, condition = None, return_intermediates=False, ddim=True, ddim_steps=200, **kwargs):
         x_dim = self.x_dim
-        return self.p_sample_loop((batch_size, x_dim), condition,
+        if ddim:
+            ddim_sampler = DDIMSampler(self)
+            shape = x_dim
+            samples, intermediates = ddim_sampler.sample(ddim_steps, batch_size,
+                                                         shape, condition, verbose=False, **kwargs)
+            if return_intermediates:
+                return samples, intermediates
+            return samples
+        else:
+            return self.p_sample_loop((batch_size, x_dim), condition,
                                   return_intermediates=return_intermediates)
 
     def q_sample(self, x_start, t, noise=None):
@@ -308,6 +318,7 @@ class DDPM(nn.Module):
     def p_losses(self, x_start, t, condition=None, noise=None):
         """
         LDM Appendix B. Detailed Information on Denoising Diffusion Mod
+        :param condition:
         :param x_start:
         :param t:
         :param noise: default N(0,1). noise at time t.
@@ -315,30 +326,35 @@ class DDPM(nn.Module):
         """
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        model_out = self.model(x_noisy, t=t, condition=condition)
+        model_output = self.model(x_noisy, t=t, condition=condition)
 
         loss_dict = {}
-        if self.parameterization == "eps":
-            target = noise
-        elif self.parameterization == "x0":
+        prefix = 'train' if self.training else 'val'
+
+        if self.parameterization == "x0":
             target = x_start
+        elif self.parameterization == "eps":
+            target = noise
         else:
-            raise NotImplementedError(f"Paramterization {self.parameterization} not yet supported")
-        ## model_out [B, D]
-        ## target [B, D]
-        loss = self.get_loss(model_out, target, mean=False).mean(dim=1)  # unnecessary to mean
-        ## loss [B, ]
-        log_prefix = 'train' if self.training else 'val'
+            raise NotImplementedError()
 
-        loss_dict.update({f'{log_prefix}/loss_simple': loss.mean()})
-        loss_simple = loss.mean() * self.l_simple_weight
+        loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2, 3])
+        loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
 
-        loss_vlb = (self.lvlb_weights[t] * loss).mean()
-        loss_dict.update({f'{log_prefix}/loss_vlb': loss_vlb})
+        logvar_t = self.logvar[t].to(self.device)
+        loss = loss_simple / torch.exp(logvar_t) + logvar_t
+        # loss = loss_simple / torch.exp(self.logvar) + self.logvar
+        if self.learn_logvar:
+            loss_dict.update({f'{prefix}/loss_gamma': loss.mean()})
+            loss_dict.update({'logvar': self.logvar.data.mean()})
 
-        loss = loss_simple + self.original_elbo_weight * loss_vlb
+        loss = self.l_simple_weight * loss.mean()
 
-        loss_dict.update({f'{log_prefix}/loss': loss})
+        loss_vlb = self.get_loss(model_output, target, mean=False).mean(dim=(1, 2, 3))
+        loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
+        loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
+        loss += (self.original_elbo_weight * loss_vlb)
+        loss_dict.update({f'{prefix}/loss': loss})
 
         return loss, loss_dict
 

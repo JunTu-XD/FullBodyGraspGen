@@ -256,14 +256,14 @@ class Trainer:
         marker_weight = self.cfg.marker_weight
 
         ################################# KL loss
-        q_z = torch.distributions.normal.Normal(drec['mean'], drec['std'])
-        p_z = torch.distributions.normal.Normal(
-            loc=torch.tensor(np.zeros([self.cfg.batch_size, self.cfg.latentD]), requires_grad=False).to(device).type(dtype),
-            scale=torch.tensor(np.ones([self.cfg.batch_size, self.cfg.latentD]), requires_grad=False).to(device).type(dtype))
-        loss_kl = torch.mean(torch.sum(torch.distributions.kl.kl_divergence(q_z, p_z), dim=[1]))
-        if self.cfg.robustkl:
-            loss_kl = torch.sqrt(1 + loss_kl**2)-1
-        loss_kl *= weight_kl
+        # q_z = torch.distributions.normal.Normal(drec['mean'], drec['std'])
+        # p_z = torch.distributions.normal.Normal(
+        #     loc=torch.tensor(np.zeros([self.cfg.batch_size, self.cfg.latentD]), requires_grad=False).to(device).type(dtype),
+        #     scale=torch.tensor(np.ones([self.cfg.batch_size, self.cfg.latentD]), requires_grad=False).to(device).type(dtype))
+        # loss_kl = torch.mean(torch.sum(torch.distributions.kl.kl_divergence(q_z, p_z), dim=[1]))
+        # if self.cfg.robustkl:
+        #     loss_kl = torch.sqrt(1 + loss_kl**2)-1
+        # loss_kl *= weight_kl
 
         ################################# object contactnet loss
         target = dorig['contacts_object'].to(device).squeeze()
