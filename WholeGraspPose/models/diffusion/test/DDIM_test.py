@@ -9,7 +9,7 @@ T = 11
 B = 32
 D = 512
 S = 4 # DDIM sampling steps
-cond_dim = 518
+cond_dim = 512
 x_0 = torch.randn((B, D)) * torch.randint(-5, 5, (B, D))
 cond = torch.randn((B, cond_dim)) # embedding of the condition
 
