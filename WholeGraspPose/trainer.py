@@ -341,7 +341,7 @@ class Trainer:
             self.logger(message)
 
         prev_lr_net = np.inf
-
+        prev_diffusion_lr_net = np.inf
         self.fit_net = True
 
         if first_stage:
@@ -380,12 +380,9 @@ class Trainer:
 
 
             if self.fit_net:
-                prev_diffusion_lr_net, prev_lr_net = None, None
                 if first_stage:
                     self.lr_scheduler.step()
                     cur_lr_net = self.optimizer_net.param_groups[0]['lr']
-                    if prev_lr_net is None:
-                        prev_lr_net = cur_lr_net
                     if cur_lr_net != prev_lr_net:
                         self.logger(
                             '--- MarkerNet learning rate changed from %.2e to %.2e ---' % (prev_lr_net, cur_lr_net))
@@ -393,8 +390,6 @@ class Trainer:
                 elif second_stage:
                     self.diffusion_lr_scheduler.step()
                     cur_diffusion_lr_net = self.optimizer_diffusion.param_groups[0]['lr']
-                    if prev_diffusion_lr_net is None:
-                        prev_diffusion_lr_net = cur_diffusion_lr_net
                     if cur_diffusion_lr_net != prev_diffusion_lr_net:
                         self.logger(
                             '--- MarkerNet learning rate changed from %.8e to %.8e ---' % (prev_diffusion_lr_net, cur_diffusion_lr_net))
