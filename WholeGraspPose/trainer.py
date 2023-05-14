@@ -155,6 +155,7 @@ class Trainer:
         torch.save(self.full_grasp_net.module.state_dict()
                    if isinstance(self.full_grasp_net, torch.nn.DataParallel)
                    else self.full_grasp_net.state_dict(), self.cfg.best_net)
+        self.logger(f"save net to {self.cfg.best_net}")
 
     def save_ckp(self, state, checkpoint_dir):
         f_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
@@ -393,7 +394,7 @@ class Trainer:
                     cur_diffusion_lr_net = self.optimizer_diffusion.param_groups[0]['lr']
                     if cur_diffusion_lr_net != prev_diffusion_lr_net:
                         self.logger(
-                            '--- MarkerNet learning rate changed from %.8e to %.8e ---' % (prev_diffusion_lr_net, cur_diffusion_lr_net))
+                            '--- Diffusion learning rate changed from %.8e to %.8e ---' % (prev_diffusion_lr_net, cur_diffusion_lr_net))
                         prev_diffusion_lr_net = cur_diffusion_lr_net
 
                 with torch.no_grad():
@@ -405,6 +406,7 @@ class Trainer:
 
                     self.cfg.best_net = makepath(os.path.join(self.cfg.work_dir, 'snapshots', 'TR%02d_E%03d_net.pt' % (self.try_num, self.epoch_completed)), isfile=True)
                     if not epoch_num % 5:
+                        ## only save net every 5 epoch into best_net path
                         self.save_net()
                     self.logger(eval_msg + ' ** ')
                     self.best_loss_net = eval_loss_dict_net['loss_total']
@@ -504,7 +506,7 @@ class Trainer:
         self.logger(
             'Training done in %s!\n' % (endtime - starttime))
         self.logger('Best MarkerNet val total loss achieved: %.2e\n' % (self.best_loss_net))
-        self.logger('Best MarkerNet model path: %s\n' % self.cfg.best_net)
+        # self.logger('Best MarkerNet model path: %s\n' % self.cfg.best_net) ### fake info, No model is saved to best_net in non-every 5 epoch.
 
 
     @staticmethod
