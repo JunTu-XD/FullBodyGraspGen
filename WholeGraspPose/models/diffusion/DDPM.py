@@ -331,7 +331,7 @@ class DDPM(nn.Module):
         model_output = self.model(x_noisy, t=t, condition=condition)
 
         loss_dict = {}
-        prefix = 'train' if self.training else 'val'
+        prefix = 'diffusion_train' if self.training else 'diffusion_val'
 
         if self.parameterization == "x0":
             target = x_start
