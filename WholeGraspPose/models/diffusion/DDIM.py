@@ -90,7 +90,7 @@ class DDIMSampler(object):
         # sampling
         x_dim = shape 
         size = (batch_size, x_dim)
-        print(f'Data shape for DDIM sampling is {size}, eta {eta}')
+        # print(f'Data shape for DDIM sampling is {size}, eta {eta}')
 
         samples, intermediates = self.ddim_sampling(conditioning, size,
                                                     callback=callback,
@@ -136,11 +136,11 @@ class DDIMSampler(object):
         intermediates = {'x_inter': [latent], 'pred_x0': [latent]}
         time_range = reversed(range(0,timesteps)) if ddim_use_original_steps else np.flip(timesteps)
         total_steps = timesteps if ddim_use_original_steps else timesteps.shape[0]
-        print(f"Running DDIM Sampling with {total_steps} timesteps")
+        # print(f"Running DDIM Sampling with {total_steps} timesteps")
 
-        iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps)
+        # iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps)
 
-        for i, step in enumerate(iterator):
+        for i, step in enumerate(time_range):
             index = total_steps - i - 1
             ts = torch.full((b,), step, device=device, dtype=torch.long)
 

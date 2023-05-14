@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     cfg = Config(default_cfg_path=default_cfg_path, **cfg)
     grabpose_trainer = Trainer(cfg=cfg)
-    grabpose_trainer.fit()
+    grabpose_trainer.fit(first_stage=False, second_stage=True)
 
     cfg = grabpose_trainer.cfg
     cfg.write_cfg(os.path.join(work_dir, 'TR%02d_%s' % (cfg.try_num, os.path.basename(default_cfg_path))))
