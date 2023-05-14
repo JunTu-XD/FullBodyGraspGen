@@ -106,7 +106,7 @@ class Trainer:
             self.logger('Restored Pretrained Grasp model from %s' % cfg.use_pretrained)
 
         if cfg.continue_train:
-            self.full_grasp_net, self.optimizer_net, self.start_epoch = self.load_ckp(checkpoint, self._get_net_model(), self.optimizer_net)
+            self.full_grasp_net, self.optimizer_net, self.optimizer_diffusion, self.start_epoch = self.load_ckp(checkpoint, self._get_net_model(), self.optimizer_net, self.optimizer_diffusion)
             self.logger('Resume Training from %s' % cfg.work_dir)
 
         self.epoch_completed = self.start_epoch
@@ -160,10 +160,11 @@ class Trainer:
         f_path = os.path.join(checkpoint_dir, 'checkpoint.pt')
         torch.save(state, f_path)
 
-    def load_ckp(self, checkpoint, model, optimizer):
+    def load_ckp(self, checkpoint, model, optimizer, diffusion_optim):
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
-        return model, optimizer, checkpoint['epoch']
+        diffusion_optim.load_state_dict(checkpoint['diffusion_optimizer'])
+        return model, optimizer, diffusion_optim, checkpoint['epoch']
 
     def train_stage(self, train_first_stage=False, train_second_stage = False):
 
@@ -487,7 +488,8 @@ class Trainer:
             checkpoint = {
                           'epoch': epoch_num + 1,
                           'state_dict': self.full_grasp_net.module.state_dict() if isinstance(self.full_grasp_net, torch.nn.DataParallel) else self.full_grasp_net.state_dict(),
-                          'optimizer': self.optimizer_net.state_dict(),
+                          'net_optimizer': self.optimizer_net.state_dict(),
+                          'diffusion_optimizer': self.optimizer_diffusion.state_dict(),
                           'cfg': self.cfg,
                           }
             self.save_ckp(checkpoint, self.cfg.work_dir)
