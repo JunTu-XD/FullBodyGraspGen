@@ -1,12 +1,14 @@
 import argparse
 import os
 
+import matplotlib.pyplot as plt
 import torch
 from pytorch_lightning import Trainer
-from torch import nn
+from torch import nn, optim
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
+from WholeGraspPose import lr_scheduler
 from WholeGraspPose.models.diffusion.DDPM import DDPM
 from WholeGraspPose.models.diffusion.Eps import Eps
 from WholeGraspPose.models.models import FullBodyGraspNet
@@ -51,17 +53,28 @@ def test_train():
     loss, _ = ddpm.p_losses(x_0, t, condition=torch.randn((B, D)))
     loss_1, _ = ddpm.forward(x_0, condition=torch.randn((B, D)))
 
-    optim = torch.optim.AdamW(ddpm.parameters(), lr=0.01)
+    optimimzer = torch.optim.AdamW(ddpm.parameters(), lr=0.01)
+    diffusion_lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts( optimimzer,
+        T_0 = 8,# Number of iterations for the first restart
+        T_mult = 1, # A factor increases TiTi​ after a restart
+        eta_min = 1e-4)
     ddpm.train()
-
+    lr_seq = []
     for _ in tqdm(range(100)):
-        optim.zero_grad()
+        lr_seq.append(optimimzer.state_dict()['param_groups'][0]['lr'])
+        optimimzer.zero_grad()
         _loss, _ = ddpm.forward(x_0, condition=torch.randn((B, D)))
         _loss.backward()
-        optim.step()
+        optimimzer.step()
 
+        diffusion_lr_scheduler.step()
     loss_2, _ = ddpm.forward(x_0, condition=torch.randn((B, D)))
+
+    plt.figure(0)
+    plt.plot(list(range(len(lr_seq))), lr_seq)
+
     print (f"\nloss delta {(loss - loss_2)}")
+    print(f"lr : {lr_seq}")
     assert (loss - loss_2) > torch.abs(loss-loss_1)
 
 def test_FBGrasp_Load():

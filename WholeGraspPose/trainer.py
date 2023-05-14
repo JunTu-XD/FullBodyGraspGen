@@ -2,6 +2,7 @@ import os
 import shutil
 import sys
 
+from WholeGraspPose import lr_scheduler
 from WholeGraspPose.models.diffusion.DDPM import DDPM
 
 sys.path.append('.')
@@ -84,6 +85,12 @@ class Trainer:
         self.optimizer_diffusion = torch.optim.AdamW(self.full_grasp_net.diffusion_parameters(), lr=cfg.diffusion_base_lr)
 
         self.lr_scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer_net, milestones=[20,40,60], gamma=0.5)
+        self.diffusion_lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer_diffusion,
+                                                                                     T_0=cfg.diffusion_lr_scheduler_cycle, # Number of iterations for the first restart
+                                                                                     T_mult=cfg.diffusion_lr_scheduler_restart_scale_factor, # A factor increases TiTi​ after a restart
+                                                                                     eta_min=cfg.diffusion_min_lr
+                                                                                     )
+
         self.best_loss_net = np.inf
 
         self.try_num = cfg.try_num
@@ -310,7 +317,7 @@ class Trainer:
 
 
         ################################## loss dict
-        loss_dict = {'loss_kl': loss_kl,
+        loss_dict = {
                      'loss_object_contact_rec': loss_object_contact_rec,
                      'loss_markers_contact_rec': loss_markers_contact_rec,
                      'loss_marker_rec': loss_marker_rec,
@@ -373,13 +380,25 @@ class Trainer:
 
 
             if self.fit_net:
-
-                self.lr_scheduler.step()
-                cur_lr_net = self.optimizer_net.param_groups[0]['lr']
-
-                if cur_lr_net != prev_lr_net:
-                    self.logger('--- MarkerNet learning rate changed from %.2e to %.2e ---' % (prev_lr_net, cur_lr_net))
-                    prev_lr_net = cur_lr_net
+                prev_diffusion_lr_net, prev_lr_net = None, None
+                if first_stage:
+                    self.lr_scheduler.step()
+                    cur_lr_net = self.optimizer_net.param_groups[0]['lr']
+                    if prev_lr_net is None:
+                        prev_lr_net = cur_lr_net
+                    if cur_lr_net != prev_lr_net:
+                        self.logger(
+                            '--- MarkerNet learning rate changed from %.2e to %.2e ---' % (prev_lr_net, cur_lr_net))
+                        prev_lr_net = cur_lr_net
+                elif second_stage:
+                    self.diffusion_lr_scheduler.step()
+                    cur_diffusion_lr_net = self.optimizer_diffusion.param_groups[0]['lr']
+                    if prev_diffusion_lr_net is None:
+                        prev_diffusion_lr_net = cur_diffusion_lr_net
+                    if cur_diffusion_lr_net != prev_diffusion_lr_net:
+                        self.logger(
+                            '--- MarkerNet learning rate changed from %.8e to %.8e ---' % (prev_diffusion_lr_net, cur_diffusion_lr_net))
+                        prev_diffusion_lr_net = cur_diffusion_lr_net
 
                 with torch.no_grad():
                     eval_msg = Trainer.create_loss_message(eval_loss_dict_net,
@@ -394,73 +413,79 @@ class Trainer:
                     self.logger(eval_msg + ' ** ')
                     self.best_loss_net = eval_loss_dict_net['loss_total']
 
-                    self.swriter.add_scalars('loss_net/kl_loss',
-                                             {
-                                             'train_loss_kl': train_loss_dict_net['loss_kl'],
-                                             'evald_loss_kl': eval_loss_dict_net['loss_kl'],
-                                            #  'train_loss_kl_normalized': train_loss_dict_net['loss_kl_normalized'],
-                                            #  'evald_loss_kl_normalized': eval_loss_dict_net['loss_kl_normalized'],
-                                             },
-                                             self.epoch_completed)
+                    # self.swriter.add_scalars('loss_net/kl_loss',
+                    #                          {
+                    #                          'train_loss_kl': train_loss_dict_net['loss_kl'],
+                    #                          'evald_loss_kl': eval_loss_dict_net['loss_kl'],
+                    #                         #  'train_loss_kl_normalized': train_loss_dict_net['loss_kl_normalized'],
+                    #                         #  'evald_loss_kl_normalized': eval_loss_dict_net['loss_kl_normalized'],
+                    #                          },
+                    #                          self.epoch_completed)
+                    if first_stage:
+                        self.swriter.add_scalars('loss_net/total_rec_loss',
+                                                 {
+                                                 'train_loss_total': train_loss_dict_net['loss_total'],
+                                                 'evald_loss_total': eval_loss_dict_net['loss_total'],
+                                                 },
+                                                 self.epoch_completed)
 
-                    self.swriter.add_scalars('loss_net/total_rec_loss',
-                                             {
-                                             'train_loss_total': train_loss_dict_net['loss_total'],
-                                             'evald_loss_total': eval_loss_dict_net['loss_total'],
-                                             },
-                                             self.epoch_completed)
+                        self.swriter.add_scalars('loss_net/object_contact_rec_loss',
+                                                 {
+                                                 'train_loss_object_contact_rec': train_loss_dict_net['loss_object_contact_rec'],
+                                                 'evald_loss_object_contact_rec': eval_loss_dict_net['loss_object_contact_rec'],
+                                                 },
+                                                 self.epoch_completed)
 
-                    self.swriter.add_scalars('loss_net/object_contact_rec_loss',
-                                             {
-                                             'train_loss_object_contact_rec': train_loss_dict_net['loss_object_contact_rec'],
-                                             'evald_loss_object_contact_rec': eval_loss_dict_net['loss_object_contact_rec'],
-                                             },
-                                             self.epoch_completed)
+                        self.swriter.add_scalars('loss_net/markers_contact_rec_loss',
+                                                 {
+                                                 'train_loss_object_markers_rec': train_loss_dict_net['loss_markers_contact_rec'],
+                                                 'evald_loss_object_markers_rec': eval_loss_dict_net['loss_markers_contact_rec'],
+                                                 },
+                                                 self.epoch_completed)
 
-                    self.swriter.add_scalars('loss_net/markers_contact_rec_loss',
-                                             {
-                                             'train_loss_object_markers_rec': train_loss_dict_net['loss_markers_contact_rec'],
-                                             'evald_loss_object_markers_rec': eval_loss_dict_net['loss_markers_contact_rec'],
-                                             },
-                                             self.epoch_completed)
+                        self.swriter.add_scalars('loss_net/marker_rec_loss',
+                                                 {
+                                                 'train_loss_marker_rec': train_loss_dict_net['loss_marker_rec'],
+                                                 'evald_loss_marker_rec': eval_loss_dict_net['loss_marker_rec'],
+                                                 },
+                                                 self.epoch_completed)
+                        self.swriter.add_scalars('loss_net/consistency_o2h_loss',
+                                                 {
+                                                 'train_loss_consistency_o2h': train_loss_dict_net['loss_consistency_o2h'],
+                                                 'evalid_loss_consistency_o2h': eval_loss_dict_net['loss_consistency_o2h'],
+                                                 },
+                                                 self.epoch_completed)
+                        self.swriter.add_scalars('loss_net/consistency_h2o_loss',
+                                                 {
+                                                 'train_loss_consistency_h2o': train_loss_dict_net['loss_consistency_h2o'],
+                                                 'evalid_loss_consistency_h2o': eval_loss_dict_net['loss_consistency_h2o'],
+                                                 },
+                                                 self.epoch_completed)
+                        self.swriter.add_scalars('loss_net/AUC_object',
+                                                 {
+                                                 'train_roc_auc_object': train_roc_auc_object,
+                                                 'eval_roc_auc_object': eval_roc_auc_object,
+                                                 },
+                                                 self.epoch_completed)
+                        self.swriter.add_scalars('loss_net/AUC_markers',
+                                                 {
+                                                 'train_roc_auc_markers': train_roc_auc_markers,
+                                                 'eval_roc_auc_markers': eval_roc_auc_markers,
+                                                 },
+                                                 self.epoch_completed)
 
-                    self.swriter.add_scalars('loss_net/marker_rec_loss',
-                                             {
-                                             'train_loss_marker_rec': train_loss_dict_net['loss_marker_rec'],
-                                             'evald_loss_marker_rec': eval_loss_dict_net['loss_marker_rec'],
-                                             },
-                                             self.epoch_completed)
-                    self.swriter.add_scalars('loss_net/consistency_o2h_loss',
-                                             {
-                                             'train_loss_consistency_o2h': train_loss_dict_net['loss_consistency_o2h'],
-                                             'evalid_loss_consistency_o2h': eval_loss_dict_net['loss_consistency_o2h'],
-                                             },
-                                             self.epoch_completed)
-                    self.swriter.add_scalars('loss_net/consistency_h2o_loss',
-                                             {
-                                             'train_loss_consistency_h2o': train_loss_dict_net['loss_consistency_h2o'],
-                                             'evalid_loss_consistency_h2o': eval_loss_dict_net['loss_consistency_h2o'],
-                                             },
-                                             self.epoch_completed)
-                    self.swriter.add_scalars('loss_net/AUC_object',
-                                             {
-                                             'train_roc_auc_object': train_roc_auc_object,
-                                             'eval_roc_auc_object': eval_roc_auc_object,
-                                             },
-                                             self.epoch_completed)
-                    self.swriter.add_scalars('loss_net/AUC_markers',
-                                             {
-                                             'train_roc_auc_markers': train_roc_auc_markers,
-                                             'eval_roc_auc_markers': eval_roc_auc_markers,
-                                             },
-                                             self.epoch_completed)
-
-                    self.logger('object train_auc: %f, object eval_auc: %f' % (train_roc_auc_object, eval_roc_auc_object))
-                    self.logger('markers train_auc: %f, markers eval_auc: %f' % (train_roc_auc_markers, eval_roc_auc_markers))
-
-                # if early_stopping_net(eval_loss_dict_net['loss_total']):
-                #     self.fit_net = False
-                #     self.logger('Early stopping MarkerNet training!')
+                        self.logger('object train_auc: %f, object eval_auc: %f' % (train_roc_auc_object, eval_roc_auc_object))
+                        self.logger('markers train_auc: %f, markers eval_auc: %f' % (train_roc_auc_markers, eval_roc_auc_markers))
+                    elif second_stage:
+                        self.swriter.add_scalars('loss_diffusion/loss',
+                                                 {
+                                                     'train_loss_total': train_loss_dict_net['loss_total'],
+                                                     'evald_loss_total': eval_loss_dict_net['loss_total'],
+                                                 },
+                                                 self.epoch_completed)
+                    # if early_stopping_net(eval_loss_dict_net['loss_total']):
+                    #     self.fit_net = False
+                    #     self.logger('Early stopping MarkerNet training!')
 
             self.epoch_completed += 1
 
