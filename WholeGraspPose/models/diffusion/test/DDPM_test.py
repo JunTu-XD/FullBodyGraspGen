@@ -97,9 +97,9 @@ def test_FBGrasp_Load():
 
     cfg = Config(default_cfg_path=default_cfg_path, **cfg)
     full_grasp_net = FullBodyGraspNet(cfg)
-    check_params = torch.detach_copy(full_grasp_net.contact_net.dec_fc1.weight)
+    check_params = torch.detach_copy(full_grasp_net.diffusion.model.model.down_sample_1.weight)
     full_grasp_net.load_state_dict(torch.load(cfg.use_pretrained, map_location="cpu"), strict=False)
-    load_params = full_grasp_net.contact_net.dec_fc1.weight
+    load_params = full_grasp_net.diffusion.model.model.down_sample_1.weight
     assert (check_params-load_params).norm() >0
 
     vars_net = [var[1] for var in full_grasp_net.named_parameters()]
