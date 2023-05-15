@@ -1,5 +1,7 @@
 import sys
 
+from WholeGraspPose.models.diffusion.DDPM import DDPM
+
 sys.path.append('.')
 sys.path.append('..')
 import numpy as np
@@ -207,10 +209,50 @@ class FullBodyGraspNet(nn.Module):
         self.pointnet = PointNetEncoder(hc=cfg.pointnet_hc, in_feature=cfg.obj_feature)
         # encoder fusion
         self.enc_fusion = ResBlock(cfg.n_markers+self.cfg.pointnet_hc*8, cfg.n_neurons)
+        ### deprecated
+        # self.enc_mu = nn.Linear(cfg.n_neurons, cfg.latentD)
+        # self.enc_var = nn.Linear(cfg.n_neurons, cfg.latentD)
+        ####
+        self.adaptor = nn.Linear(cfg.n_neurons, cfg.latentD)
+        self.diffusion = DDPM(learn_logvar=cfg.learn_logvar)
+        self.enc_dec_modules = [self.marker_net, self.contact_net, self.pointnet, self.enc_fusion, self.adaptor]
+        self.learn_logvar = cfg.learn_logvar
 
-        self.enc_mu = nn.Linear(cfg.n_neurons, cfg.latentD)
-        self.enc_var = nn.Linear(cfg.n_neurons, cfg.latentD)
+    def encoder_decoder_parameters(self):
+        vars_net = []
+        for _sub_module in self.enc_dec_modules:
+            vars_net.extend([var[1] for var in _sub_module.named_parameters()])
 
+        grad_prams = sum(p.numel() for p in vars_net if p.requires_grad)
+        all_params = sum(p.numel() for p in vars_net)
+        assert grad_prams == all_params, "SAGA encoder decoder has frozen parameters, which might unfrozen in training "
+        return vars_net
+
+    def freeze_enc_dec_params(self):
+        ps = self.encoder_decoder_parameters()
+        for p in ps:
+            p.requires_grad=False
+
+    def unfreeze_enc_dec_params(self):
+        ps = self.encoder_decoder_parameters()
+        for p in ps:
+            p.requires_grad = True
+
+    def diffusion_parameters(self):
+        params = self.diffusion.model.parameters()
+        if self.learn_logvar:
+            params = list(params) + [self.diffusion.logvar]
+        return params
+
+    def freeze_diffusion_params(self):
+        ps = self.diffusion_parameters()
+        for p in ps:
+            p.requires_grad = False
+
+    def unfreeze_diffusion_params(self):
+        ps = self.diffusion_parameters()
+        for p in ps:
+            p.requires_grad = True
 
     def encode(self, object_cond, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl):
         # marker branch
@@ -223,29 +265,35 @@ class FullBodyGraspNet(nn.Module):
         X = torch.cat([marker_feat, contact_feat], dim=-1)
         X = self.enc_fusion(X, True)
 
-        return torch.distributions.normal.Normal(self.enc_mu(X), F.softplus(self.enc_var(X)))
+        return X
 
 
     def decode(self, Z, object_cond, verts_object, feat_object, transf_transl):
 
         bs = Z.shape[0]
+        _Z = self.adaptor(Z)
         # marker_branch
-        markers_xyz_pred, markers_p_pred = self.marker_net.dec(Z, object_cond, transf_transl)
+        markers_xyz_pred, markers_p_pred = self.marker_net.dec(_Z, object_cond, transf_transl)
 
         # contact branch
-        contact_pred = self.contact_net.dec(Z, object_cond, verts_object, feat_object)
+        contact_pred = self.contact_net.dec(_Z, object_cond, verts_object, feat_object)
 
         return markers_xyz_pred.view(bs, -1, 3), markers_p_pred, contact_pred
 
-    def forward(self, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl, **kwargs):
+    def forward(self, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl, return_diffusion_input=False, **kwargs):
         object_cond = self.pointnet(l0_xyz=verts_object, l0_points=feat_object)
         z = self.encode(object_cond, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl)
-        z_s = z.rsample()
-
+        ## Diffusion, Denosing
+        _, _, _, _, l3_xyz, l3_f = object_cond
+        _diffusion_params = {"batch_size": z.shape[0], "condition": self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)}
+        z_s = self.diffusion.sample(ddim=True, **_diffusion_params)
+        _diffusion_params["x"] = z
+        ##
         markers_xyz_pred, markers_p_pred, object_p_pred = self.decode(z_s, object_cond, verts_object, feat_object, transf_transl)
 
-        results = {'markers': markers_xyz_pred, 'contacts_markers': markers_p_pred, 'contacts_object': object_p_pred, 'object_code': object_cond[-1], 'mean': z.mean, 'std': z.scale}
-
+        results = {'markers': markers_xyz_pred, 'contacts_markers': markers_p_pred, 'contacts_object': object_p_pred, 'object_code': object_cond[-1]}
+        if return_diffusion_input:
+            return results, _diffusion_params
         return results
 
 
@@ -256,10 +304,10 @@ class FullBodyGraspNet(nn.Module):
         dtype = verts_object.dtype
         device = verts_object.device
         self.eval()
-        with torch.no_grad():
-            Zgen = np.random.normal(0., 1., size=(bs, self.latentD))
-            Zgen = torch.tensor(Zgen,dtype=dtype).to(device)
 
         object_cond = self.pointnet(l0_xyz=verts_object, l0_points=feat_object)
-
+        ## DDIM
+        _, _, _, _, l3_xyz, l3_f = object_cond
+        Zgen = self.diffusion.sample(batch_size=bs, condition=self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)).type(dtype).to(device)
+        ##
         return self.decode(Zgen, object_cond, verts_object, feat_object, transf_transl)
