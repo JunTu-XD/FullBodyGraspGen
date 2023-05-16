@@ -46,7 +46,7 @@ class Trainer:
         if logger:
             self.logger = logger
         else:
-            self.logger = (makepath(os.path.join(cfg.work_dir, '%s.log' % (cfg.exp_name)), isfile=True)).info
+            self.logger = makelogger(makepath(os.path.join(cfg.work_dir, '%s.log' % (cfg.exp_name)), isfile=True)).info
 
         if not inference:
             summary_logdir = os.path.join(cfg.work_dir, 'summaries')
