@@ -17,7 +17,7 @@ from WholeGraspPose.models.fittingop import FittingOP
 from WholeGraspPose.models.objectmodel import ObjectModel
 from WholeGraspPose.trainer import Trainer
 
-from eval_metrics import evaluate
+from eval_metrics import evaluate, set_torch
 
 from WholeGraspPose.data.dataloader import LoadData
 
@@ -296,6 +296,7 @@ if __name__ == '__main__':
 
     cwd = os.getcwd()
 
+    set_torch(deter=True) # guanrantee reproducibility
     
 
     vpe_path  = '/configs/verts_per_edge.npy'

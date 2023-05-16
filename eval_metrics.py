@@ -12,6 +12,17 @@ import open3d as o3d
 from visualization.visualization_utils import *
 from scipy.spatial.distance import pdist
 
+def set_torch(deter=False):
+    '''
+    `deter` means use deterministic algorithms for GPU training reproducibility, 
+    if set `deter=True`, please set the environment variable `CUBLAS_WORKSPACE_CONFIG` in advance
+    '''
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.enabled = False
+    torch.use_deterministic_algorithms(deter)
+    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+
 def uniform_box_sampling(min_corner, max_corner, res = 0.005):
     x_min = min_corner[0] - res
     x_max = max_corner[0] + res
