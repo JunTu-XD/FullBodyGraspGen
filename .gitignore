@@ -243,3 +243,7 @@ pretrained_model/
 logs/
 
 *.pyc
+*DS_Store*
+
+*.err
+*.out

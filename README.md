@@ -11,7 +11,7 @@ source venvs/grasp_venv/bin/activate
 ### euler module
 ```module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy```
 
-```pip install requirements.txt```
+```pip install -r requirements.txt```
 
 ```
 ## check python, pytorch+cu version
