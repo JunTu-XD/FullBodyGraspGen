@@ -11,7 +11,7 @@ log_every_epoch: 10
 n_epochs: 100
 n_markers: 512
 n_neurons: 512
-n_workers: 2
+n_workers: 8
 reg_coef: 0.0005
 # rhm_path: null
 seed: 4815
