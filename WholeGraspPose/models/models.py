@@ -1,6 +1,7 @@
 import sys
 
 from WholeGraspPose.models.diffusion.DDPM import DDPM
+from mapping import MapperNet
 
 sys.path.append('.')
 sys.path.append('..')
@@ -213,7 +214,7 @@ class FullBodyGraspNet(nn.Module):
         # self.enc_mu = nn.Linear(cfg.n_neurons, cfg.latentD)
         # self.enc_var = nn.Linear(cfg.n_neurons, cfg.latentD)
         ####
-        self.adaptor = nn.Linear(cfg.n_neurons, cfg.latentD)
+        self.adaptor = MapperNet()
         self.diffusion = DDPM(learn_logvar=cfg.learn_logvar)
         self.enc_dec_modules = [self.marker_net, self.contact_net, self.pointnet, self.enc_fusion, self.adaptor]
         self.learn_logvar = cfg.learn_logvar

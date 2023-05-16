@@ -11,11 +11,11 @@ log_every_epoch: 10
 n_epochs: 100
 n_markers: 512
 n_neurons: 512
-n_workers: 8
+n_workers: 2
 reg_coef: 0.0005
 # rhm_path: null
 seed: 4815
-try_num: 0
+try_num: 2
 use_multigpu: false
 vpe_path: null
 work_dir: null
@@ -37,10 +37,10 @@ pointnet_hc: 64
 continue_train: False
 data_representation: 'markers_143'     # 'joints' / 'markers_143' / 'markers_214' / 'markers_593'
 learn_logvar: False
-diffusion_base_lr: 0.000002
+diffusion_base_lr: 0.0002
 use_pretrained: "pretrained_model/male_grasppose_model.pt"
 train_1_stage: False
 train_2_stage: True
-diffusion_min_lr: 0.00000002
+diffusion_min_lr: 0.0000002
 diffusion_lr_scheduler_restart_scale_factor: 1
 diffusion_lr_scheduler_cycle: 25
