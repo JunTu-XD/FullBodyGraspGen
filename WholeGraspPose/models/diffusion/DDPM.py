@@ -9,7 +9,6 @@ https://github.com/CompVis/taming-transformers
 import torch
 import torch.nn as nn
 import numpy as np
-import pytorch_lightning as pl
 from torch import clamp
 from torch.optim.lr_scheduler import LambdaLR
 from einops import rearrange, repeat
@@ -1068,7 +1067,7 @@ class LatentDiffusion(DDPM):
         return opt
 
 
-class DiffusionWrapper(pl.LightningModule):
+class DiffusionWrapper(nn.Module):
     def __init__(self, diff_model_config, conditioning_key):
         super().__init__()
         self.diffusion_model = instantiate_from_config(diff_model_config)

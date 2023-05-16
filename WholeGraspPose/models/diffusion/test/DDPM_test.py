@@ -3,7 +3,6 @@ import os
 
 import matplotlib.pyplot as plt
 import torch
-from pytorch_lightning import Trainer
 from torch import nn, optim
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
