@@ -245,5 +245,10 @@ logs/
 *.pyc
 *DS_Store*
 
+<<<<<<< HEAD
 *.err
 *.out
+=======
+*.out
+*.err
+>>>>>>> eval_metrics_test

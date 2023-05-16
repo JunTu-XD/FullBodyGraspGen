@@ -22,6 +22,11 @@ if __name__ == '__main__':
 
     parser.add_argument('--object_format', default = 'mesh', type=str,
                         help='pcd or mesh')
+    
+    # 'objectmesh' : grasp+object, 
+    # 'contactmap' : grasp+conatctmap
+    parser.add_argument('--visual_cue', default = 'objectmesh', type=str,
+                        help='pcd or mesh') 
 
     args = parser.parse_args()
 
@@ -29,6 +34,8 @@ if __name__ == '__main__':
     cwd = os.getcwd()
 
     load_path = '../results/{}/GraspPose/{}/fitting_results.npz'.format(args.exp_name, args.object)
+    body_model_path = '../body_utils/body_models'
+    contact_meshes_path = '../dataset/contact_meshes'
 
     data = np.load(load_path, allow_pickle=True)
     gender = args.gender
@@ -37,9 +44,9 @@ if __name__ == '__main__':
     n_samples = len(data['markers'])
 
     # Prepare mesh and pcd
-    object_pcd = get_pcd(data['object'][()]['verts_object'][:n_samples])
-    object_mesh = get_object_mesh(object_name, 'GRAB', data['object'][()]['transl'][:n_samples], data['object'][()]['global_orient'][:n_samples], n_samples)
-    body_mesh, _ = get_body_mesh(data['body'][()], gender, n_samples)
+    object_pcd = object_pcd = get_pcd(data['object'][()]['verts_object'][:n_samples], data['contact'][()]['object'][:n_samples])  # together with the contact map info
+    object_mesh = get_object_mesh(contact_meshes_path, object_name, 'GRAB', data['object'][()]['transl'][:n_samples], data['object'][()]['global_orient'][:n_samples], n_samples)
+    body_mesh, _ = get_body_mesh(body_model_path, data['body'][()], gender, n_samples)
 
 
     # ground
@@ -50,9 +57,16 @@ if __name__ == '__main__':
     gp_lines.paint_uniform_color(color_hex2rgb('#bdbfbe'))   # grey
     gp_pcd.paint_uniform_color(color_hex2rgb('#bdbfbe'))     # grey
     coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.25)
-
-    for i in range(n_samples):
-        print(body_mesh[i])
-        visualization_list = [body_mesh[i], object_mesh[i], coord, gp_lines, gp_pcd]
-        o3d.visualization.draw_geometries(visualization_list)
+    
+    if args.visual_cue == "objectmesh":
+        # draw grasp pose + object
+        for i in range(n_samples):
+            print(body_mesh[i])
+            visualization_list = [body_mesh[i], object_mesh[i], coord, gp_lines, gp_pcd]
+            o3d.visualization.draw_geometries(visualization_list)
+    else:
+        # draw grasp pose + contact map
+        for i in range(n_samples):
+            visualization_list = [body_mesh[i], object_pcd[i], coord, gp_lines, gp_pcd]
+            o3d.visualization.draw_geometries(visualization_list)
 
