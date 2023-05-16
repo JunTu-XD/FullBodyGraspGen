@@ -39,6 +39,7 @@ data_representation: 'markers_143'     # 'joints' / 'markers_143' / 'markers_214
 learn_logvar: False
 diffusion_base_lr: 0.0002
 use_pretrained: "pretrained_model/male_grasppose_model.pt"
+pretrained_adaptor: "male-mapper_net_params.pt"
 train_1_stage: False
 train_2_stage: True
 diffusion_min_lr: 0.0000002

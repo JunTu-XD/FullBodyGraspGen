@@ -46,7 +46,7 @@ class Trainer:
         if logger:
             self.logger = logger
         else:
-            self.logger = makelogger(makepath(os.path.join(cfg.work_dir, '%s.log' % (cfg.exp_name)), isfile=True)).info
+            self.logger = (makepath(os.path.join(cfg.work_dir, '%s.log' % (cfg.exp_name)), isfile=True)).info
 
         if not inference:
             summary_logdir = os.path.join(cfg.work_dir, 'summaries')
@@ -103,6 +103,7 @@ class Trainer:
             self.logger('Restored ContactNet model from %s' % cfg.best_net)
         elif cfg.use_pretrained is not None:
             self._get_net_model().load_state_dict(torch.load(cfg.use_pretrained, map_location=self.device), strict=False)
+            self._get_net_model().adaptor.load_state_dict(torch.load(cfg.pretrained_adaptor, map_location=self.device), strict=False)
             self.logger('Restored Pretrained Grasp model from %s' % cfg.use_pretrained)
 
         if cfg.continue_train:

@@ -49,7 +49,7 @@ def makelogger(log_dir,mode='w'):
 
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
-
+    makelogger
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     ch.setFormatter(formatter)
