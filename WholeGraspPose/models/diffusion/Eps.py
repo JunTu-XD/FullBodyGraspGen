@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from WholeGraspPose.models.diffusion.UNet1D import UNet1D
+from WholeGraspPose.models.diffusion.DenoisingModels import UNet1D
 from WholeGraspPose.models.diffusion.utils import get_timestep_embedding
 
 
@@ -10,7 +10,7 @@ class Eps(nn.Module):
         super(Eps, self).__init__(*args, **kwargs)
 
         self.time_emb_dim = D
-        self.model = UNet1D()
+        self.model = UNet1D(drop_out_p=0)
 
     def forward(self, x, t, condition):
         t_emb = get_timestep_embedding(timesteps=t, embedding_dim=self.time_emb_dim)
