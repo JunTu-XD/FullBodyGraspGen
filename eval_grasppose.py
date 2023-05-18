@@ -279,13 +279,10 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', default = None, type=str,
                         help='experiment name')
 
-    parser.add_argument('--pose_ckpt_folder', default = None, type=str,
-                        help='checkpoint folder')
-
     parser.add_argument('--n_object_samples', default = 5, type=int,
                         help='The number of object samples of this object')
 
-    parser.add_argument('--type_object_samples', default = 'random', type=str,
+    parser.add_argument('--type_object_samples', default = 'testset_random', type=str,
                         help='For the given object mesh, we provide two types of object heights and orientation sampling mode: random / uniform / testset_random')
 
     parser.add_argument('--n_rand_samples_per_object', default = 1, type=int,
@@ -293,6 +290,13 @@ if __name__ == '__main__':
 
     parser.add_argument('--gender', default = "male", type=str,
                         help='male, female, all')
+    
+    parser.add_argument('--male_pose_ckpt_path', default = None, type=str,
+                        help='checkpoint path for the male model')
+    
+    parser.add_argument('--female_pose_ckpt_path', default = None, type=str,
+                        help='checkpoint path for the female model')
+    
     
     args = parser.parse_args()
     n_rand_samples_per_object = args.n_rand_samples_per_object
@@ -314,16 +318,21 @@ if __name__ == '__main__':
     n_groups_samples = 0
 
     # test for the specified gender type
+    model_name = dict()
+    model_name["male"] = args.male_pose_ckpt_path
+    model_name["female"] = args.female_pose_ckpt_path
+
     if args.gender == "male":
         genders = ["male"]
+        
     elif args.gender == "female":
         genders = ["female"]
+        
     else:
         genders = ['male', 'female']
 
     for gender in genders:
-        model_name = gender + "_grasppose_model.pt"
-        best_net = os.path.join(cwd, args.pose_ckpt_folder, model_name)
+        best_net = os.path.join(cwd, model_name[gender])
         work_dir = cwd + '/results/{}/{}/GraspPose'.format(args.exp_name, gender)
         # print(work_dir)
         config = {
