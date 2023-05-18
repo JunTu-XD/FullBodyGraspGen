@@ -291,6 +291,9 @@ if __name__ == '__main__':
     parser.add_argument('--n_rand_samples_per_object', default = 1, type=int,
                         help='The number of whole-body poses random samples generated per object')
 
+    parser.add_argument('--gender', default = "male", type=str,
+                        help='male, female, all')
+    
     args = parser.parse_args()
     n_rand_samples_per_object = args.n_rand_samples_per_object
 
@@ -310,8 +313,15 @@ if __name__ == '__main__':
     n_samples = 0
     n_groups_samples = 0
 
-    # test for both male and female
-    for gender in ['male', 'female']:
+    # test for the specified gender type
+    if args.gender == "male":
+        genders = ["male"]
+    elif args.gender == "female":
+        genders = ["female"]
+    else:
+        genders = ['male', 'female']
+
+    for gender in genders:
         model_name = gender + "_grasppose_model.pt"
         best_net = os.path.join(cwd, args.pose_ckpt_folder, model_name)
         work_dir = cwd + '/results/{}/{}/GraspPose'.format(args.exp_name, gender)

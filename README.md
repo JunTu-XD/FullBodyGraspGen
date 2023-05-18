@@ -37,3 +37,10 @@ in *train_helper.py* to
 - pip install requirements_local.txt
 - follow instructions in SAGA repo
 - after inference done, download results folder into local code base to use vis_pose.py to show them.
+
+## run the evaluation 
+```
+# take 30 different object poses from GRAB test set per object class, and generate 5 random samples per object, test for male only
+# can set test object class using --objects (default = ['mug','camera','toothpaste','wineglass','fryingpan','binoculars'])
+python eval_grasppose.py --exp_name saga_pretrained_eval --pose_ckpt_folder pretrained_model --n_object_samples 30 --n_rand_samples_per_object 5 --type_object_samples testset_random --gender male
+```
