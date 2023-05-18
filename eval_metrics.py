@@ -229,6 +229,10 @@ def evaluate(body_model_path, contact_meshes_path, load_path, gender, object_nam
     output['inter_vol'] = inter_vol
     output['inter_depth'] = inter_depth
     output['contact'] = contact
+    output['avg_apd'] = np.mean(apd)
+    output['avg_inter_vol'] = np.mean(inter_vol)
+    output['avg_inter_depth'] = np.mean(inter_depth)
+    output['contact_ratio'] = np.mean(contact)
     output['n_samples'] = n_samples
     output['n_rand_samples_per_object'] = n_rand_samples_per_object
 
