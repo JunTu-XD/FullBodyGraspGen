@@ -46,8 +46,8 @@ class UNet1D(nn.Module):
         feat_with_time = feature_vec + time # [bs,512]
         if condition != None:
             if not self.warned:
-                dummy = input(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
-                              +"Press enter to confirm this:" + Style.RESET_ALL)
+                print(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
+                               + Style.RESET_ALL)
                 self.warned = True
             X = torch.cat((feat_with_time,condition), dim=-1) # [bs,1024]
             # feature fusion
@@ -156,8 +156,8 @@ class FlatPush(nn.Module):
         feat_with_time = feature_vec + time # [bs,512]
         if condition != None:
             if not self.warned:
-                dummy = input(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
-                              +"Press enter to confirm this:" + Style.RESET_ALL)
+                print(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
+                               + Style.RESET_ALL)
                 self.warned = True
             X = torch.cat((feat_with_time,condition), dim=-1) # [bs,1024]
             # feature fusion
@@ -256,8 +256,8 @@ class TransformerDenoising(nn.Module):
         feat_with_time = feature_vec + time # [bs,512]
         if condition != None:
             if not self.warned:
-                dummy = input(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
-                              +"Press enter to confirm this:" + Style.RESET_ALL)
+                print(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
+                               + Style.RESET_ALL)
                 self.warned = True
             X = torch.cat((feat_with_time,condition), dim=-1) # [bs,1024]
             # feature fusion
