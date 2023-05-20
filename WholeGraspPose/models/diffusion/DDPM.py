@@ -355,7 +355,7 @@ class DDPM(nn.Module):
         loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
         loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
         loss += (self.original_elbo_weight * loss_vlb)
-        loss_dict.update({f'loss_total': loss})
+        loss_dict.update({f'diffusion_loss_total': loss})
 
         return loss, loss_dict
 
