@@ -103,7 +103,7 @@ class Trainer:
             self.logger('Restored ContactNet model from %s' % cfg.best_net)
         elif cfg.use_pretrained is not None:
             self._get_net_model().load_state_dict(torch.load(cfg.use_pretrained, map_location=self.device), strict=False)
-            self._get_net_model().adaptor.load_state_dict(torch.load(cfg.pretrained_adaptor, map_location=self.device), strict=False)
+            # self._get_net_model().adaptor.load_state_dict(torch.load(cfg.pretrained_adaptor, map_location=self.device), strict=False)
             self.logger('Restored Pretrained Grasp model from %s' % cfg.use_pretrained)
 
         if cfg.continue_train:
@@ -406,7 +406,7 @@ class Trainer:
                                                             try_num=self.try_num, mode='evald')
 
                     self.cfg.best_net = makepath(os.path.join(self.cfg.work_dir, 'snapshots', 'TR%02d_E%03d_net.pt' % (self.try_num, self.epoch_completed)), isfile=True)
-                    if not epoch_num % 5:
+                    if not epoch_num % 1:
                         ## only save net every 5 epoch into best_net path
                         self.save_net()
                     self.logger(eval_msg + ' ** ')
