@@ -527,4 +527,4 @@ class Trainer:
     def create_loss_message(loss_dict, epoch_num=0,model_name='ContactNet', it=0, try_num=0, mode='evald'):
         ext_msg = ' | '.join(['%s = %.2e' % (k, v) for k, v in loss_dict.items() if k != 'loss_total'])
         return 'TR%02d_E%03d - It %05d - %s - %s: [T:%.2e] - [%s]' % (
-            try_num, epoch_num, it,model_name, mode, loss_dict['loss_total'], ext_msg)
+            try_num, epoch_num, it,model_name, mode, loss_dict['diffusion_loss_total'], ext_msg)
