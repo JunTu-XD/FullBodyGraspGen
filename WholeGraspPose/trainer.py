@@ -379,10 +379,10 @@ class Trainer:
             train_roc_auc_object = self.ROC_AUC_object.compute()
             train_roc_auc_markers = self.ROC_AUC_marker.compute()
 
-            eval_loss_dict_net  = self.evaluate()
+            eval_loss_dict_net = self.evaluate()
             eval_roc_auc_object = self.ROC_AUC_object.compute()
             eval_roc_auc_markers = self.ROC_AUC_marker.compute()
-            eval_loss_dict_net  = train_loss_dict_net
+
 
             if self.cfg.kl_annealing:
                 self.cfg.kl_coef = min(0.5 * (epoch_num+1) / self.cfg.kl_annealing_epoch, 0.5)
