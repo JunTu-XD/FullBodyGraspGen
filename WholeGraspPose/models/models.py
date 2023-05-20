@@ -284,13 +284,17 @@ class FullBodyGraspNet(nn.Module):
     def forward(self, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl, return_diffusion_input=False, **kwargs):
         object_cond = self.pointnet(l0_xyz=verts_object, l0_points=feat_object)
         z = self.encode(object_cond, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl)
+        z_s = z.rsample()
         ## Diffusion, Denosing
         _, _, _, _, l3_xyz, l3_f = object_cond
-        _diffusion_params = {"batch_size": z.shape[0], "condition": self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)}
-        z_s = self.diffusion.sample(ddim=True, **_diffusion_params)
-        _diffusion_params["x"] = z
+        _diffusion_params = {"batch_size": z_s.shape[0], "condition": self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)}
+
+
+        z_d = self.diffusion.sample(ddim=True, **_diffusion_params)
+        
+        _diffusion_params["x"] = z_s     
         ##
-        markers_xyz_pred, markers_p_pred, object_p_pred = self.decode(z_s, object_cond, verts_object, feat_object, transf_transl)
+        markers_xyz_pred, markers_p_pred, object_p_pred = self.decode(z_d, object_cond, verts_object, feat_object, transf_transl)
 
         results = {'markers': markers_xyz_pred, 'contacts_markers': markers_p_pred, 'contacts_object': object_p_pred, 'object_code': object_cond[-1]}
         if return_diffusion_input:
