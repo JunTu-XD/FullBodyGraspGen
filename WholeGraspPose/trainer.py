@@ -11,6 +11,7 @@ import json
 import pickle
 from datetime import datetime
 
+from tqdm import tqdm
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -177,7 +178,7 @@ class Trainer:
         train_loss_dict_net = {}
         torch.autograd.set_detect_anomaly(True)
 
-        for it, dorig in enumerate(self.ds_train):
+        for it, dorig in enumerate(tqdm(self.ds_train)):
             dorig = {k: dorig[k].to(self.device) for k in dorig.keys() if k!='smplxparams'}
 
             ## todo zero_grad two optimizer
@@ -359,7 +360,7 @@ class Trainer:
 
         early_stopping_net = EarlyStopping(patience=8, trace_func=self.logger)
 
-        for epoch_num in range(self.start_epoch, n_epochs + 1):
+        for epoch_num in tqdm(range(self.start_epoch, n_epochs + 1)):
             self.logger('--- starting Epoch # %03d' % epoch_num)
             self.ROC_AUC_object.reset()
             self.ROC_AUC_marker.reset()
