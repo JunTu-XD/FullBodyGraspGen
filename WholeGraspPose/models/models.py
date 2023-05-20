@@ -210,13 +210,13 @@ class FullBodyGraspNet(nn.Module):
         self.pointnet = PointNetEncoder(hc=cfg.pointnet_hc, in_feature=cfg.obj_feature)
         # encoder fusion
         self.enc_fusion = ResBlock(cfg.n_markers+self.cfg.pointnet_hc*8, cfg.n_neurons)
-        ### deprecated
-        # self.enc_mu = nn.Linear(cfg.n_neurons, cfg.latentD)
-        # self.enc_var = nn.Linear(cfg.n_neurons, cfg.latentD)
+
+        self.enc_mu = nn.Linear(cfg.n_neurons, cfg.latentD)
+        self.enc_var = nn.Linear(cfg.n_neurons, cfg.latentD)
+
         ####
-        self.adaptor = MapperNet()
         self.diffusion = DDPM(learn_logvar=cfg.learn_logvar)
-        self.enc_dec_modules = [self.marker_net, self.contact_net, self.pointnet, self.enc_fusion, self.adaptor]
+        self.enc_dec_modules = [self.marker_net, self.contact_net, self.pointnet, self.enc_fusion, self.enc_mu, self.enc_var]
         self.learn_logvar = cfg.learn_logvar
 
     def encoder_decoder_parameters(self):
@@ -226,7 +226,7 @@ class FullBodyGraspNet(nn.Module):
 
         grad_prams = sum(p.numel() for p in vars_net if p.requires_grad)
         all_params = sum(p.numel() for p in vars_net)
-        assert grad_prams == all_params, "SAGA encoder decoder has frozen parameters, which might unfrozen in training "
+        assert grad_prams == all_params, "Be aware: some parameters in SAGA are frozen in original implementation, but they might be unfrozen in current implementation"
         return vars_net
 
     def freeze_enc_dec_params(self):
@@ -266,18 +266,18 @@ class FullBodyGraspNet(nn.Module):
         X = torch.cat([marker_feat, contact_feat], dim=-1)
         X = self.enc_fusion(X, True)
 
-        return X
+        return torch.distributions.normal.Normal(self.enc_mu(X), F.softplus(self.enc_var(X)))
 
 
     def decode(self, Z, object_cond, verts_object, feat_object, transf_transl):
 
         bs = Z.shape[0]
-        _Z = self.adaptor(Z)
+
         # marker_branch
-        markers_xyz_pred, markers_p_pred = self.marker_net.dec(_Z, object_cond, transf_transl)
+        markers_xyz_pred, markers_p_pred = self.marker_net.dec(Z, object_cond, transf_transl)
 
         # contact branch
-        contact_pred = self.contact_net.dec(_Z, object_cond, verts_object, feat_object)
+        contact_pred = self.contact_net.dec(Z, object_cond, verts_object, feat_object)
 
         return markers_xyz_pred.view(bs, -1, 3), markers_p_pred, contact_pred
 
