@@ -242,10 +242,14 @@ class Trainer:
                 dorig['contacts_markers'] = dorig['contacts_markers'].view(dorig['contacts_markers'].shape[0], -1, 1)
 
                 if self.fit_net:
-                    drec_net = self.full_grasp_net(**dorig)
+                    drec_net, diffusion_input = self.full_grasp_net(return_diffusion_input=True, **dorig)
                     loss_total_net, cur_loss_dict_net = self.loss_net(dorig, drec_net)
 
                     eval_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in cur_loss_dict_net.items()}
+
+                    loss_diffusion, diff_loss_dict = self.full_grasp_net.diffusion(**diffusion_input)
+                    eval_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in diff_loss_dict.items()}
+
 
                 self.ROC_AUC_object.update((drec_net['contacts_object'].view(-1, 1).detach().cpu(), dorig['contacts_object'].squeeze().view(-1, 1).detach().cpu()))
                 self.ROC_AUC_marker.update((drec_net['contacts_markers'].view(-1, 1).detach().cpu(), dorig['contacts_markers'].squeeze().view(-1, 1).detach().cpu()))
