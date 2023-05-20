@@ -489,7 +489,7 @@ class Trainer:
                                                  },
                                                  self.epoch_completed)
                         self.logger(
-                            'diffusion train_l2: %f, diffusion eval_l2: %f' % (train_loss_dict_net['loss_total'], eval_loss_dict_net['loss_total']))
+                            'diffusion train_l2: %f, diffusion eval_l2: %f' % (train_loss_dict_net['diffusion_loss_total'], eval_loss_dict_net['diffusion_loss_total']))
                     # if early_stopping_net(eval_loss_dict_net['loss_total']):
                     #     self.fit_net = False
                     #     self.logger('Early stopping MarkerNet training!')
