@@ -498,7 +498,18 @@ class Trainer:
                         'object train_auc: %f, object eval_auc: %f' % (train_roc_auc_object, eval_roc_auc_object))
                     self.logger(
                         'markers train_auc: %f, markers eval_auc: %f' % (train_roc_auc_markers, eval_roc_auc_markers))
-
+                    self.swriter.add_scalars('loss_net/AUC_object',
+                                             {
+                                                 'train_roc_auc_object': train_roc_auc_object,
+                                                 'eval_roc_auc_object': eval_roc_auc_object,
+                                             },
+                                             self.epoch_completed)
+                    self.swriter.add_scalars('loss_net/AUC_markers',
+                                             {
+                                                 'train_roc_auc_markers': train_roc_auc_markers,
+                                                 'eval_roc_auc_markers': eval_roc_auc_markers,
+                                             },
+                                             self.epoch_completed)
             self.epoch_completed += 1
 
             checkpoint = {
