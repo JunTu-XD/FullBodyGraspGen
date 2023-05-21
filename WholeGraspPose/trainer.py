@@ -236,6 +236,7 @@ class Trainer:
         data = self.ds_val if ds_name == 'val' else self.ds_test
 
         with torch.no_grad():
+
             for dorig in data:
                 dorig = {k: dorig[k].to(self.device) for k in dorig.keys() if k!='smplxparams'}
                 dorig['verts_object'] = dorig['verts_object'].permute(0,2,1)
@@ -247,12 +248,12 @@ class Trainer:
                     drec_net, diffusion_input = self.full_grasp_net(return_diffusion_input=True, **dorig)
                     loss_total_net, cur_loss_dict_net = self.loss_net(dorig, drec_net)
 
-                    eval_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in cur_loss_dict_net.items()}
+                    temp_eval_saga_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in cur_loss_dict_net.items()}
 
                     loss_diffusion, diff_loss_dict = self.full_grasp_net.diffusion(**diffusion_input)
-                    eval_diff_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in diff_loss_dict.items()}
-
-                    eval_loss_dict_net = {**eval_diff_loss_dict_net, **eval_loss_dict_net}
+                    temp_eval_diffusion_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in diff_loss_dict.items()}
+                    temp_loss_dict = {**temp_eval_diffusion_loss_dict_net, **temp_eval_saga_loss_dict_net}
+                    eval_loss_dict_net =  {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in temp_loss_dict.items()}
 
                 self.ROC_AUC_object.update((drec_net['contacts_object'].view(-1, 1).detach().cpu(), dorig['contacts_object'].squeeze().view(-1, 1).detach().cpu()))
                 self.ROC_AUC_marker.update((drec_net['contacts_markers'].view(-1, 1).detach().cpu(), dorig['contacts_markers'].squeeze().view(-1, 1).detach().cpu()))
