@@ -253,7 +253,7 @@ class Trainer:
                     loss_diffusion, diff_loss_dict = self.full_grasp_net.diffusion(**diffusion_input)
                     temp_eval_diffusion_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in diff_loss_dict.items()}
                     temp_loss_dict = {**temp_eval_diffusion_loss_dict_net, **temp_eval_saga_loss_dict_net}
-                    eval_loss_dict_net =  {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in temp_loss_dict.items()}
+                    eval_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v for k, v in temp_loss_dict.items()}
 
                 self.ROC_AUC_object.update((drec_net['contacts_object'].view(-1, 1).detach().cpu(), dorig['contacts_object'].squeeze().view(-1, 1).detach().cpu()))
                 self.ROC_AUC_marker.update((drec_net['contacts_markers'].view(-1, 1).detach().cpu(), dorig['contacts_markers'].squeeze().view(-1, 1).detach().cpu()))
