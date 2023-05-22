@@ -263,6 +263,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--object_format', default = 'mesh', type=str,
                         help='pcd or mesh')
+    
+    parser.add_argument('--fitting_path', default = 'None', type=str,
+                        help='the folder path of the fitting_results.npz')
+
 
     args = parser.parse_args()
     
@@ -275,5 +279,4 @@ if __name__ == "__main__":
     body_model_path = cwd + '/body_utils/body_models'
     contact_meshes_path = cwd + '/dataset/contact_meshes'
 
-    load_path = cwd + '/results/{}/GraspPose/{}'.format(args.exp_name, args.object)
-    evaluate(body_model_path, contact_meshes_path, load_path, gender, object_name, n_rand_samples_per_object)
+    evaluate(body_model_path, contact_meshes_path, args.fitting_path, gender, object_name, n_rand_samples_per_object)

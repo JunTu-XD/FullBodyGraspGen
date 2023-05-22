@@ -38,9 +38,15 @@ in *train_helper.py* to
 - follow instructions in SAGA repo
 - after inference done, download results folder into local code base to use vis_pose.py to show them.
 
-## run the evaluation 
+## run the evaluation (fitting+opt+eval)
 ```
 # take 30 different object poses from GRAB test set per object class, and generate 5 random samples per object, test for male only
 # can set test object class using --objects (default = ['mug','camera','toothpaste','wineglass','fryingpan','binoculars'])
 python eval_grasppose.py --exp_name saga_pretrained_eval --male_pose_ckpt_path pretrained_model/male_grasppose_model.pt --n_object_samples 30 --n_rand_samples_per_object 5 --gender male
 ```
+
+## compute the eval metrics of one single fitting_results.npz file
+```
+python eval_metrics.py --exp_name saga_512d_female_eval --gender female --object camera --fitting_path results/saga_512d_female_eval/GraspPose/camera --n_rand_samples_per_object 1
+```
+
