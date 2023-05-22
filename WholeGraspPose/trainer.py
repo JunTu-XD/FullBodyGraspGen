@@ -129,7 +129,7 @@ class Trainer:
 
         if not inference:
             ds_name = 'train'
-            ds_train = LoadData(dataset_dir=cfg.dataset_dir, ds_name=ds_name, gender=cfg.gender, motion_intent=cfg.motion_intent, object_class=cfg.object_class)
+            ds_train = LoadData(dataset_dir=cfg.dataset_dir, ds_name=ds_name, gender=cfg.gender, motion_intent=cfg.motion_intent, object_class=cfg.object_class, debug=cfg.debug)
             self.ds_train = DataLoader(ds_train, **kwargs)
 
             ds_name = 'val'
@@ -199,10 +199,12 @@ class Trainer:
                     self.optimizer_net.step()
                 if train_second_stage:
                     drec_net, diffusion_input = self.full_grasp_net(**dorig, return_diffusion_input=True)
-                    loss_diffusion, cur_loss_dict_net = self.full_grasp_net.diffusion(**diffusion_input)
-
+                    loss_diffusion, cur_diffusion_dict_net = self.full_grasp_net.diffusion(**diffusion_input)
                     loss_diffusion.backward()
                     self.optimizer_diffusion.step()
+
+                    _, cur_e2e_loss_dict_net = self.loss_net(dorig, drec_net)
+                    cur_loss_dict_net={**cur_diffusion_dict_net, **cur_e2e_loss_dict_net}
 
                 train_loss_dict_net = {k: train_loss_dict_net.get(k, 0.0) + v.item() for k, v in cur_loss_dict_net.items()}
                 if it % (save_every_it + 1) == 0:
@@ -234,6 +236,7 @@ class Trainer:
         data = self.ds_val if ds_name == 'val' else self.ds_test
 
         with torch.no_grad():
+
             for dorig in data:
                 dorig = {k: dorig[k].to(self.device) for k in dorig.keys() if k!='smplxparams'}
                 dorig['verts_object'] = dorig['verts_object'].permute(0,2,1)
@@ -245,11 +248,11 @@ class Trainer:
                     drec_net, diffusion_input = self.full_grasp_net(return_diffusion_input=True, **dorig)
                     loss_total_net, cur_loss_dict_net = self.loss_net(dorig, drec_net)
 
-                    eval_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in cur_loss_dict_net.items()}
-
                     loss_diffusion, diff_loss_dict = self.full_grasp_net.diffusion(**diffusion_input)
-                    eval_loss_dict_net = {k: eval_loss_dict_net.get(k, 0.0) + v.item() for k, v in diff_loss_dict.items()}
 
+                    temp_loss_dict = {**diff_loss_dict, **cur_loss_dict_net}
+
+                    eval_loss_dict_net =  {k: eval_loss_dict_net.get(k, 0.0) + v for k, v in temp_loss_dict.items()}
 
                 self.ROC_AUC_object.update((drec_net['contacts_object'].view(-1, 1).detach().cpu(), dorig['contacts_object'].squeeze().view(-1, 1).detach().cpu()))
                 self.ROC_AUC_marker.update((drec_net['contacts_markers'].view(-1, 1).detach().cpu(), dorig['contacts_markers'].squeeze().view(-1, 1).detach().cpu()))
@@ -377,10 +380,10 @@ class Trainer:
             train_roc_auc_object = self.ROC_AUC_object.compute()
             train_roc_auc_markers = self.ROC_AUC_marker.compute()
 
-            eval_loss_dict_net  = self.evaluate()
+            eval_loss_dict_net = self.evaluate()
             eval_roc_auc_object = self.ROC_AUC_object.compute()
             eval_roc_auc_markers = self.ROC_AUC_marker.compute()
-            eval_loss_dict_net  = train_loss_dict_net
+
 
             if self.cfg.kl_annealing:
                 self.cfg.kl_coef = min(0.5 * (epoch_num+1) / self.cfg.kl_annealing_epoch, 0.5)
@@ -407,7 +410,7 @@ class Trainer:
                     eval_msg = Trainer.create_loss_message(eval_loss_dict_net,
                                                             # expr_ID=self.cfg.expr_ID,
                                                             epoch_num=self.epoch_completed, it=len(self.ds_val),
-                                                            model_name='MarkerNet',
+                                                            model_name='Diffusion_SAGA',
                                                             try_num=self.try_num, mode='evald')
 
                     self.cfg.best_net = makepath(os.path.join(self.cfg.work_dir, 'snapshots', 'TR%02d_E%03d_net.pt' % (self.try_num, self.epoch_completed)), isfile=True)
@@ -415,7 +418,7 @@ class Trainer:
                         ## only save net every 5 epoch into best_net path
                         self.save_net()
                     self.logger(eval_msg + ' ** ')
-                    self.best_loss_net = eval_loss_dict_net['loss_total']
+                    self.best_loss_net = eval_loss_dict_net['diffusion_loss_total']
 
                     # self.swriter.add_scalars('loss_net/kl_loss',
                     #                          {
@@ -478,19 +481,36 @@ class Trainer:
                                                  },
                                                  self.epoch_completed)
 
-                        self.logger('object train_auc: %f, object eval_auc: %f' % (train_roc_auc_object, eval_roc_auc_object))
-                        self.logger('markers train_auc: %f, markers eval_auc: %f' % (train_roc_auc_markers, eval_roc_auc_markers))
+
                     elif second_stage:
                         self.swriter.add_scalars('loss_diffusion/loss',
                                                  {
-                                                     'train_loss_total': train_loss_dict_net['loss_total'],
-                                                     'evald_loss_total': eval_loss_dict_net['loss_total'],
+                                                     'train_loss_total': train_loss_dict_net['diffusion_loss_total'],
+                                                     'evald_loss_total': eval_loss_dict_net['diffusion_loss_total'],
                                                  },
                                                  self.epoch_completed)
+                        self.logger(
+                            'diffusion train_l2: %f, diffusion eval_l2: %f' % (train_loss_dict_net['diffusion_loss_total'], eval_loss_dict_net['diffusion_loss_total']))
                     # if early_stopping_net(eval_loss_dict_net['loss_total']):
                     #     self.fit_net = False
                     #     self.logger('Early stopping MarkerNet training!')
 
+                    self.logger(
+                        'object train_auc: %f, object eval_auc: %f' % (train_roc_auc_object, eval_roc_auc_object))
+                    self.logger(
+                        'markers train_auc: %f, markers eval_auc: %f' % (train_roc_auc_markers, eval_roc_auc_markers))
+                    self.swriter.add_scalars('loss_net/AUC_object',
+                                             {
+                                                 'train_roc_auc_object': train_roc_auc_object,
+                                                 'eval_roc_auc_object': eval_roc_auc_object,
+                                             },
+                                             self.epoch_completed)
+                    self.swriter.add_scalars('loss_net/AUC_markers',
+                                             {
+                                                 'train_roc_auc_markers': train_roc_auc_markers,
+                                                 'eval_roc_auc_markers': eval_roc_auc_markers,
+                                             },
+                                             self.epoch_completed)
             self.epoch_completed += 1
 
             checkpoint = {
@@ -519,4 +539,4 @@ class Trainer:
     def create_loss_message(loss_dict, epoch_num=0,model_name='ContactNet', it=0, try_num=0, mode='evald'):
         ext_msg = ' | '.join(['%s = %.2e' % (k, v) for k, v in loss_dict.items() if k != 'loss_total'])
         return 'TR%02d_E%03d - It %05d - %s - %s: [T:%.2e] - [%s]' % (
-            try_num, epoch_num, it,model_name, mode, loss_dict['loss_total'], ext_msg)
+            try_num, epoch_num, it,model_name, mode, loss_dict['diffusion_loss_total'], ext_msg)

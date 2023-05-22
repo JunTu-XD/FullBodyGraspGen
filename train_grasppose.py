@@ -37,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', default = None, type=str,
                         help='experiment name')
 
-
+    parser.add_argument('--debug', default= False, type=bool)
     args = parser.parse_args()
 
     work_dir = os.path.join(args.work_dir, args.exp_name)

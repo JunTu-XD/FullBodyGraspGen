@@ -20,7 +20,8 @@ class LoadData(data.Dataset):
                  motion_intent=None,
                  object_class=['all'],
                  dtype=torch.float32,
-                 data_type = 'markers_143'):
+                 data_type = 'markers_143',
+                 debug=False):
 
         super().__init__()
 
@@ -40,9 +41,9 @@ class LoadData(data.Dataset):
                 if marker['type'] not in ['palm_5']:   # 'palm_5' contains selected 5 markers per palm, but for training we use 'palm' set where there are 22 markers per palm. 
                     self.markers_idx += list(marker['indices'].values())
         print(len(self.markers_idx))
-        self.ds = self.load_full_data(self.ds_path)
+        self.ds = self.load_full_data(self.ds_path, debug=debug)
 
-    def load_full_data(self, path):
+    def load_full_data(self, path, debug=False):
         rec_list = []
         output = {}
 
@@ -58,9 +59,12 @@ class LoadData(data.Dataset):
         body_list = {}
         for key in ['transl', 'global_orient', 'body_pose', 'jaw_pose', 'leye_pose', 'reye_pose', 'left_hand_pose', 'right_hand_pose', 'expression']:
             body_list[key] = []
-            
-        subsets_dict = {'male':['s1', 's2', 's8', 's9', 's10'],
-                       'female': ['s3', 's4', 's5', 's6', 's7']}
+        if not debug:
+            subsets_dict = {'male':['s1', 's2', 's8', 's9', 's10'],
+                           'female': ['s3', 's4', 's5', 's6', 's7']}
+        else:
+            subsets_dict = {'male': ['s1'],
+                            'female': ['s3']}
         subsets = subsets_dict[self.gender]
 
         print('loading {} dataset: {}'.format(self.gender, subsets))
