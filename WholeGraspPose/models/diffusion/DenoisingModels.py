@@ -180,75 +180,75 @@ class FlatPush(nn.Module):
 
         return X
 
-class Attention(nn.Module):
+class TransformerBlock(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_heads, dropout_rate):
-        super(Attention, self).__init__()
+        super(TransformerBlock, self).__init__()
 
-        self.multihead_attention = nn.MultiheadAttention(input_dim, num_heads)
-        self.layer_norm1 = nn.LayerNorm(input_dim)
+        self.multihead_attention = nn.MultiheadAttention(embed_dim=input_dim, num_heads=num_heads)
+        self.layer_norm = nn.LayerNorm(input_dim)
         self.feed_forward = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, input_dim)
         )
-        self.layer_norm2 = nn.LayerNorm(input_dim)
         self.dropout = nn.Dropout(dropout_rate)
 
+        self.ff_q = nn.Linear(in_features=input_dim, out_features=input_dim)
+        self.ff_k = nn.Linear(in_features=input_dim, out_features=input_dim)
+        self.ff_v = nn.Linear(in_features=input_dim, out_features=input_dim)
+
     def forward(self, x):
+        # input should be of size (L, bs, d)
         # Multi-head self-attention
-        attn_output, _ = self.multihead_attention(x, x, x)
+        xshape = x.shape
+        q = self.ff_q(x)
+        k = self.ff_k(x)
+        v = self.ff_v(x)
+        attn_output, _ = self.multihead_attention(q, k, v)
         attn_output = self.dropout(attn_output)
-        x = self.layer_norm1(x + attn_output)
+
+        x = self.layer_norm(x + attn_output)
 
         # Feed-forward neural network
         ff_output = self.feed_forward(x)
         ff_output = self.dropout(ff_output)
-        x = self.layer_norm2(x + ff_output)
-
+        x = self.layer_norm(x + ff_output)
+        assert x.shape == xshape
         return x
 
 class TransformerDenoising(nn.Module):
-    def __init__(self, vec_dim, drop_out_p, heads, depth):
+    def __init__(self, seq_len, vec_dim, drop_out_p, heads, depth):
         '''
-        - vec_dim: The dimension of the sequence of vectors that the Transformer Block will process
+        - seq_len: The lenth of the sequence of vectors that the Transformer Block will process (the dimension is expected to be 512)
         - drop_out_p: drop out probability
         - heads: number of heads
         - depth: Number of transformer blocks stacked
         '''
         super(TransformerDenoising, self).__init__()
         self.warned = False
+        self.vec_dim = vec_dim
+        self.seq_len = seq_len
         # feature fusion
-        self.fuse_in = nn.Linear(512*2, 512*2)
-        self.fuse_mid = nn.Linear(512*2, 512*2)
-        self.fuse_out = nn.Linear(512*2, 512)
+        self.fuse_in = nn.Linear(vec_dim*2, vec_dim*2)
+        self.fuse_mid = nn.Linear(vec_dim*2, vec_dim*2)
+        self.fuse_out = nn.Linear(vec_dim*2, vec_dim)
 
-        # map to D dim
+        # map to seq of length seq_len
         self.mapper = nn.Sequential(
-            nn.Conv1d(in_channels=1, out_channels=vec_dim//3, kernel_size=1),
+            nn.Linear(vec_dim, vec_dim*2),
             nn.GELU(),
-            nn.Conv1d(in_channels=vec_dim//3, out_channels=2*vec_dim//3, kernel_size=1),
-            nn.GELU(),
-            nn.Conv1d(in_channels=2*vec_dim//3, out_channels=vec_dim, kernel_size=1)
-        )
-
-        # map back to 1 dim
-        self.mapper2 = nn.Sequential(
-            nn.Conv1d(in_channels=vec_dim, out_channels=2*vec_dim//3, kernel_size=1),
-            nn.GELU(),
-            nn.Conv1d(in_channels=2*vec_dim//3, out_channels=vec_dim//3, kernel_size=1),
-            nn.GELU(),
-            nn.Conv1d(in_channels=vec_dim//3, out_channels=1, kernel_size=1),
+            nn.Linear(vec_dim*2, vec_dim * seq_len)
         )
 
         # Attention
         attention_blocks = []
         for i in range(depth):
-            attention_blocks.append(Attention(input_dim=vec_dim, hidden_dim=vec_dim*2, num_heads=heads, dropout_rate=drop_out_p))
+            attention_blocks.append(TransformerBlock(input_dim=vec_dim, hidden_dim=vec_dim*2, num_heads=heads, dropout_rate=drop_out_p))
         self.model = nn.Sequential(*attention_blocks)
 
-        # BatchNorms, Regularization, GELU
-        self.bn_1024 = nn.BatchNorm1d(1024)
-        self.bn_512 = nn.BatchNorm1d(512)
+        # LayerNorms, Regularization, GELU
+        self.ln_1024 = nn.LayerNorm(vec_dim*2)
+        self.ln_512 = nn.LayerNorm(vec_dim)
         self.drop_out = nn.Dropout(drop_out_p)
         self.gelu = nn.GELU()
 
@@ -262,32 +262,30 @@ class TransformerDenoising(nn.Module):
             X = torch.cat((feat_with_time,condition), dim=-1) # [bs,1024]
             # feature fusion
             X = self.fuse_in(X)
-            X = self.bn_1024(X)
+            X = self.ln_1024(X)
             X = self.gelu(X)
 
             X = self.fuse_mid(X)
-            X = self.bn_1024(X)
+            X = self.ln_1024(X)
             X = self.gelu(X)
             X = self.drop_out(X)
 
             X = self.fuse_out(X)
-            X = self.bn_512(X)
+            X = self.ln_512(X)
             X = self.gelu(X)
         else:
-            X = feat_with_time
+            X = feat_with_time # [bs,512]
 
-        X = X.unsqueeze(1)
-        X = self.mapper(X) # gives [bs, vec_dim, seq_len] (bs, vec_dim, 512)
-        X = einops.rearrange(X,"bs vec_dim seq_len -> bs seq_len vec_dim")
-        X = self.model(X)
-        X = einops.rearrange(X,"bs seq_len vec_dim -> bs vec_dim seq_len")
-        X = self.mapper2(X)
-        X = X.squeeze()
+        X = self.mapper(X) # [bs, 512*L]
+        X = einops.rearrange(X, 'b (d l) -> l b d', d=self.vec_dim, l=self.seq_len) # [L, bs, 512]
+        X = self.model(X) # [L, bs, 512]
+
+        X = torch.sum(X, dim=0)
 
         return X
 
 if __name__ == '__main__':
-    model = TransformerDenoising(vec_dim=128, drop_out_p=0.3, heads=4, depth=3)
+    model = TransformerDenoising(seq_len=8, vec_dim=512, drop_out_p=0.3, heads=8, depth=3)
     batch_size = 32
 
     feature_vec = torch.rand((batch_size,512))
