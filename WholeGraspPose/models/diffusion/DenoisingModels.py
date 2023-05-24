@@ -219,7 +219,8 @@ class TransformerBlock(nn.Module):
 class TransformerDenoising(nn.Module):
     def __init__(self, seq_len, vec_dim, drop_out_p, heads, depth):
         '''
-        - seq_len: The lenth of the sequence of vectors that the Transformer Block will process (the dimension is expected to be 512)
+        - seq_len: The lenth of the sequence of vectors that the Transformer Block will process
+        - vec_dim: The dimension of the sequence of vectors that the Transformer Block will process (should be 512, but it's not constrained to be 512)
         - drop_out_p: drop out probability
         - heads: number of heads
         - depth: Number of transformer blocks stacked
