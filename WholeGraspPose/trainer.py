@@ -133,7 +133,7 @@ class Trainer:
             self.ds_train = DataLoader(ds_train, **kwargs)
 
             ds_name = 'val'
-            ds_val = LoadData(dataset_dir=cfg.dataset_dir, ds_name=ds_name, gender=cfg.gender)
+            ds_val = LoadData(dataset_dir=cfg.dataset_dir, ds_name=ds_name, gender=cfg.gender, debug=cfg.debug)
             self.ds_val = DataLoader(ds_val, **kwargs)
 
             self.logger('Dataset Train, Valid size respectively: %.2f M, %.2f K' %
