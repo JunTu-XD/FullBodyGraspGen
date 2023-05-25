@@ -286,6 +286,104 @@ class TransformerDenoising(nn.Module):
 
         return X
 
+# upsample first, then downsample, the latentD is expected to be 16
+class NNet1D(nn.Module):
+    def __init__(self, drop_out_p):
+        super(NNet1D, self).__init__()
+
+        # align the dim of condition with dim of feat_vector
+        self.align = nn.Linear(512, 16)
+
+        # feature fusion
+        self.fuse_in = nn.Linear(16*2, 16*2)
+        self.fuse_out = nn.Linear(16*2, 16)
+
+        # NNet upsample
+        self.up_sample_1 = nn.Linear(16, 32)
+        self.up_sample_2 = nn.Linear(32, 64)
+        self.up_sample_3 = nn.Linear(64, 128)
+
+        # NNet middle
+        self.middle_1 = nn.Linear(128, 128)
+        self.middle_2 = nn.Linear(128, 128)
+        self.middle_3 = nn.Linear(128, 128)
+
+        # NNet dowmsample
+        self.down_sample_1 = nn.Linear(128, 64)
+        self.down_sample_2 = nn.Linear(64, 32)
+        self.down_sample_3 = nn.Linear(32, 16)
+
+        # BatchNorms, Regularization, GELU
+        self.bn_128 = nn.BatchNorm1d(128)
+        self.bn_64 = nn.BatchNorm1d(64)
+        self.bn_32 = nn.BatchNorm1d(32)
+        self.bn_16 = nn.BatchNorm1d(16)
+
+        self.drop_out = nn.Dropout(drop_out_p)
+        self.activation = nn.GELU() # nn.LeakyReLU(negative_slope=0.2)
+
+    def forward(self, feature_vec, time, condition=None): # expect feat & time to be [bs, 16], condition [bs, 512]
+        feat_with_time = feature_vec + time # [bs,16]
+        if condition != None:
+            condition = self.align(condition) # [bs, 16]
+            X = torch.cat((feat_with_time,condition), dim=-1) # [bs, 32]
+            # feature fusion
+            X = self.fuse_in(X)
+            X = self.bn_32(X)
+            X = self.activation(X) # [bs, 32]
+
+            X = self.fuse_out(X)
+            X = self.bn_16(X)
+            X = self.activation(X) # [bs, 16]
+        else:
+            X = feat_with_time
+
+        # NNet upsample
+        X = self.up_sample_1(X)
+        X = self.bn_32(X)
+        X = self.activation(X)
+
+        X = self.up_sample_2(X)
+        X = self.bn_64(X)
+        X = self.activation(X)
+        X = self.drop_out(X)
+
+        X = self.up_sample_3(X)
+        X = self.bn_128(X)
+        X = self.activation(X)
+        
+        # UNet middle
+        X = self.middle_1(X)
+        X = self.bn_128(X)
+        X = self.activation(X)
+        X = self.drop_out(X)
+
+        X = self.middle_2(X)
+        X = self.bn_128(X)
+        X = self.activation(X)
+        X = self.drop_out(X)
+
+        X = self.middle_3(X)
+        X = self.bn_128(X)
+        X = self.activation(X)
+        X = self.drop_out(X)
+
+        # NNet downsample
+        X = self.down_sample_1(X)
+        X = self.bn_64(X)
+        X = self.activation(X)
+
+        X = self.down_sample_2(X)
+        X = self.bn_32(X)
+        X = self.activation(X)
+        X = self.drop_out(X)
+
+        X = self.down_sample_3(X)
+        X = self.bn_16(X)
+        X = self.activation(X)
+
+        return X
+
 if __name__ == '__main__':
     model = TransformerDenoising(vec_dim=128, drop_out_p=0.3, heads=4, depth=3)
     batch_size = 32

@@ -16,7 +16,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from ignite.contrib.metrics import ROC_AUC
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from torch import nn, optim
 from torch.utils.data import DataLoader
 from utils.train_helper import EarlyStopping, point2point_signed
@@ -190,19 +191,28 @@ class Trainer:
                 dorig['contacts_object'] = dorig['contacts_object'].view(dorig['contacts_object'].shape[0], 1, -1)
                 dorig['contacts_markers'] = dorig['contacts_markers'].view(dorig['contacts_markers'].shape[0], -1, 1)
 
+                # one-stage training
+                if train_first_stage and train_second_stage:
+                    drec_net, diffusion_input = self.full_grasp_net(**dorig, return_diffusion_input=True)
+                    loss_total, cur_saga_loss_dict_net = self.loss_net(dorig, drec_net)
+                    loss_diffusion, cur_diffusion_dict_net = self.full_grasp_net.diffusion(**diffusion_input)
+                    loss_total_with_diffusion = self.cfg.diffusion_weight *  loss_diffusion + self.cfg.saga_weight * loss_total
+                    loss_total_with_diffusion.backward()
+                    self.optimizer_net.step()
+                    self.optimizer_diffusion.step()
+                    cur_loss_dict_net={**cur_diffusion_dict_net, **cur_saga_loss_dict_net}
+                    cur_loss_dict_net['loss_total_with_diffusion'] = loss_total_with_diffusion
 
-                if train_first_stage:
+                elif train_first_stage:
                     drec_net = self.full_grasp_net(**dorig)
                     loss_total_net, cur_loss_dict_net = self.loss_net(dorig, drec_net)
-
                     loss_total_net.backward()
                     self.optimizer_net.step()
-                if train_second_stage:
+                elif train_second_stage:
                     drec_net, diffusion_input = self.full_grasp_net(**dorig, return_diffusion_input=True)
                     loss_diffusion, cur_diffusion_dict_net = self.full_grasp_net.diffusion(**diffusion_input)
                     loss_diffusion.backward()
                     self.optimizer_diffusion.step()
-
                     _, cur_e2e_loss_dict_net = self.loss_net(dorig, drec_net)
                     cur_loss_dict_net={**cur_diffusion_dict_net, **cur_e2e_loss_dict_net}
 
@@ -250,7 +260,10 @@ class Trainer:
 
                     loss_diffusion, diff_loss_dict = self.full_grasp_net.diffusion(**diffusion_input)
 
+                    loss_total_with_diffusion = self.cfg.diffusion_weight *  loss_diffusion + self.cfg.saga_weight * loss_total_net
+
                     temp_loss_dict = {**diff_loss_dict, **cur_loss_dict_net}
+                    temp_loss_dict['loss_total_with_diffusion'] = loss_total_with_diffusion
 
                     eval_loss_dict_net =  {k: eval_loss_dict_net.get(k, 0.0) + v for k, v in temp_loss_dict.items()}
 
@@ -398,7 +411,7 @@ class Trainer:
                         self.logger(
                             '--- MarkerNet learning rate changed from %.2e to %.2e ---' % (prev_lr_net, cur_lr_net))
                         prev_lr_net = cur_lr_net
-                elif second_stage:
+                if second_stage:
                     self.diffusion_lr_scheduler.step()
                     cur_diffusion_lr_net = self.optimizer_diffusion.param_groups[0]['lr']
                     if cur_diffusion_lr_net != prev_diffusion_lr_net:
@@ -482,18 +495,28 @@ class Trainer:
                                                  self.epoch_completed)
 
 
-                    elif second_stage:
+                    if second_stage:
                         self.swriter.add_scalars('loss_diffusion/loss',
                                                  {
                                                      'train_loss_total': train_loss_dict_net['diffusion_loss_total'],
                                                      'evald_loss_total': eval_loss_dict_net['diffusion_loss_total'],
                                                  },
                                                  self.epoch_completed)
+                        
+                        self.swriter.add_scalars('loss_overall_stage/loss',
+                                                 {
+                                                     'train_loss_total_with_diffusion': train_loss_dict_net['loss_total_with_diffusion'],
+                                                     'evald_loss_total_with_diffusion': eval_loss_dict_net['loss_total_with_diffusion'],
+                                                 },
+                                                 self.epoch_completed)
+
                         self.logger(
                             'diffusion train_l2: %f, diffusion eval_l2: %f' % (train_loss_dict_net['diffusion_loss_total'], eval_loss_dict_net['diffusion_loss_total']))
-                    # if early_stopping_net(eval_loss_dict_net['loss_total']):
-                    #     self.fit_net = False
-                    #     self.logger('Early stopping MarkerNet training!')
+                    
+
+                    if early_stopping_net(eval_loss_dict_net['loss_total_with_diffusion']):
+                        self.fit_net = False
+                        self.logger('Early stop the training!')
 
                     self.logger(
                         'object train_auc: %f, object eval_auc: %f' % (train_roc_auc_object, eval_roc_auc_object))

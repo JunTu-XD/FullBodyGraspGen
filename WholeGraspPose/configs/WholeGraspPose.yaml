@@ -7,8 +7,8 @@ cuda_id: 0
 dataset_dir: null
 kl_coef: 0.005
 latentD: 512
-log_every_epoch: 1
-n_epochs: 100
+log_every_epoch: 5
+n_epochs: 40
 n_markers: 512
 n_neurons: 512
 n_workers: 8
@@ -38,10 +38,15 @@ continue_train: False
 data_representation: 'markers_143'     # 'joints' / 'markers_143' / 'markers_214' / 'markers_593'
 learn_logvar: False
 diffusion_base_lr: 0.000005
-use_pretrained: "pretrained_model/male_grasppose_model.pt"
-pretrained_adaptor: "male-mapper_net_params.pt"
-train_1_stage: False
+use_pretrained: null
+pretrained_adaptor: null #"male-mapper_net_params.pt"
+train_1_stage: True
 train_2_stage: True
 diffusion_min_lr: 0.000001
 diffusion_lr_scheduler_restart_scale_factor: 1
 diffusion_lr_scheduler_cycle: 25
+debug: False
+
+# for tunning the relative weight of saga total loss VS diffution loss in one-stage training
+diffusion_weight: 10
+saga_weight: 0.1

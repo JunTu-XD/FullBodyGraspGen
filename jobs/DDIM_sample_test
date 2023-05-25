@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#SBATCH -n 4                              # Number of cores
+#SBATCH --time=1:00:00                    # hours:minutes:seconds
+#SBATCH --mem-per-cpu=32000
+#SBATCH --tmp=4000                         # per node!!
+#SBATCH --gpus=rtx_2080_ti:1               # Other options are: --gpus=gtx_1080_ti:1  --gpus=rtx_2080_ti:1
+#SBATCH --job-name=DDIM_sample_test_16d
+#SBATCH --output=./results/DDIM_sample_test_16d/DDIM_sample_test_16d.out
+#SBATCH --error=./results/DDIM_sample_test_16d/DDIM_sample_test_16d.err
+
+
+# env2lmod
+#module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0
+#conda activate grasp_conda ## change conda name accordingly
+#python opt_grasppose.py --exp_name pretrained_male --gender male --pose_ckpt_path pretrained/pretrained_model/male_grasppose_model.pt --object camera --n_object_samples 10
+
+source /cluster/scratch/yaqqin/venvs/grasp_bk_venv/bin/activate
+module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0
+python DDIM_sample_test.py

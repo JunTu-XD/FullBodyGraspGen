@@ -1,14 +1,14 @@
 #!/bin/bash
 
 #SBATCH -n 8                              # Number of cores
-#SBATCH --time=16:00:00                    # hours:minutes:seconds
+#SBATCH --time=4:00:00                    # hours:minutes:seconds
 #SBATCH --mem-per-cpu=30000
 #SBATCH --tmp=4000                         # per node!!
 #SBATCH  --gpus=rtx_2080_ti:1              # Ohter options are: --gpus=gtx_1080_ti:1  --gpus=rtx_2080_ti:1
-#SBATCH --job-name=train_job
-#SBATCH --output=./results/pretrained_ada_male/train.out
-#SBATCH --error=./results/pretrained_ada_male/train.err
+#SBATCH --job-name=male_512d_diffusion_one_stage
+#SBATCH --output=./results/male_512d_diffusion_one_stage/train.out
+#SBATCH --error=./results/male_512d_diffusion_one_stage/train.err
 
-source /cluster/scratch/gt/venvs/saga_venv/bin/activate
+source /cluster/scratch/yaqqin/venvs/grasp_venv/bin/activate
 module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy
-python train_grasppose.py --data_path ./dataset/GraspPose --gender male --exp_name male_512
+python train_grasppose.py --data_path ./dataset/GraspPose --gender male --exp_name male_512d_diffusion_one_stage --n-workers 2

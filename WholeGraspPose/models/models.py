@@ -215,7 +215,7 @@ class FullBodyGraspNet(nn.Module):
         self.enc_var = nn.Linear(cfg.n_neurons, cfg.latentD)
 
         ####
-        self.diffusion = DDPM(learn_logvar=cfg.learn_logvar)
+        self.diffusion = DDPM(learn_logvar=cfg.learn_logvar, x_dim = cfg.latentD)
         self.enc_dec_modules = [self.marker_net, self.contact_net, self.pointnet, self.enc_fusion, self.enc_mu, self.enc_var]
         self.learn_logvar = cfg.learn_logvar
 
@@ -266,7 +266,7 @@ class FullBodyGraspNet(nn.Module):
         X = torch.cat([marker_feat, contact_feat], dim=-1)
         X = self.enc_fusion(X, True)
 
-        return torch.distributions.normal.Normal(self.enc_mu(X), F.softplus(self.enc_var(X)))
+        return torch.distributions.normal.Normal(self.enc_mu(X), F.softplus(self.enc_var(X)) + 1e-8) # add small num to avoid 0 sigma
 
 
     def decode(self, Z, object_cond, verts_object, feat_object, transf_transl):
