@@ -43,7 +43,7 @@ class DDPM(nn.Module):
     # classic DDPM with Gaussian diffusion
     def __init__(self,
                  model=None,
-                 timesteps=1000,
+                 timesteps=500,
                  beta_schedule="linear",
                  loss_type="l2",
                  ckpt_path=None,
@@ -51,7 +51,7 @@ class DDPM(nn.Module):
                  load_only_unet=False,
                  monitor="val/loss",
                  use_ema=False,
-                 x_dim=512,
+                 x_dim=16,
                  log_every_t=100,
                  clip_denoised=True,
                  linear_start=1e-4,
@@ -264,7 +264,7 @@ class DDPM(nn.Module):
         b = shape[0]
         x_t_minus_1 = torch.randn(shape, device=device)
         intermediates = [x_t_minus_1]
-        for i in tqdm(reversed(range(0, self.num_timesteps)), desc='Sampling t', total=self.num_timesteps):
+        for i in reversed(range(0, self.num_timesteps)):
             x_t_minus_1 = self.p_sample(x_t_minus_1, torch.full((b,), i,  device=device, dtype=torch.long), condition=condition,
                                 clip_denoised=self.clip_denoised)
             if i % self.log_every_t == 0 or i == self.num_timesteps - 1:

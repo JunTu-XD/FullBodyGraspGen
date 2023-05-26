@@ -6,13 +6,13 @@ from WholeGraspPose.models.diffusion.utils import get_timestep_embedding
 
 
 class Eps(nn.Module):
-    def __init__(self, D=512, *args, **kwargs):
+    def __init__(self, D = 512, *args, **kwargs):
         super(Eps, self).__init__(*args, **kwargs)
 
         self.time_emb_dim = D
-        self.model = UNet1D(drop_out_p=0)
+        # self.model = UNet1D(drop_out_p=0)
         # self.model = FlatPush(depth=5,drop_out_p=0)
-        # self.model = TransformerDenoising(vec_dim=128, drop_out_p=0, heads=4, depth=3)
+        self.model = TransformerDenoising(seq_len=8, vec_dim=D, drop_out_p=0.3, heads=8, depth=4)
 
     def forward(self, x, t, condition):
         t_emb = get_timestep_embedding(timesteps=t, embedding_dim=self.time_emb_dim)

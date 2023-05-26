@@ -290,7 +290,7 @@ class FullBodyGraspNet(nn.Module):
         _diffusion_params = {"batch_size": z_s.shape[0], "condition": self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)}
 
 
-        z_d = self.diffusion.sample(ddim=True, **_diffusion_params)
+        z_d = self.diffusion.sample(ddim=False, **_diffusion_params)
         
         _diffusion_params["x"] = z_s     
         ##
