@@ -128,27 +128,27 @@ class UNet1D(nn.Module):
         return X
 
 class FlatPush(nn.Module):
-    def __init__(self, depth, drop_out_p):
+    def __init__(self, depth, drop_out_p, input_dim=512*2, out_dim=512):
         super(FlatPush, self).__init__()
         self.warned = False
         # feature fusion
-        self.fuse_in = nn.Linear(512*2, 512*2)
-        self.fuse_mid = nn.Linear(512*2, 512*2)
-        self.fuse_out = nn.Linear(512*2, 512)
+        self.fuse_in = nn.Linear(input_dim, input_dim)
+        self.fuse_mid = nn.Linear(input_dim,input_dim)
+        self.fuse_out = nn.Linear(input_dim, out_dim)
 
         # The FlatPush MLP
         layers = []
         for i in range(depth):
-            layers.append(nn.Linear(512, 512))
-            layers.append(nn.BatchNorm1d(512))
+            layers.append(nn.Linear(out_dim, out_dim))
+            layers.append(nn.BatchNorm1d(out_dim))
             layers.append(nn.GELU())
             layers.append(nn.Dropout(drop_out_p))
-        layers.append(nn.Linear(512, 512))
+        layers.append(nn.Linear(out_dim, out_dim))
         self.model = nn.Sequential(*layers)
 
         # BatchNorms, Regularization, GELU
-        self.bn_1024 = nn.BatchNorm1d(1024)
-        self.bn_512 = nn.BatchNorm1d(512)
+        self.bn_1024 = nn.BatchNorm1d(input_dim)
+        self.bn_512 = nn.BatchNorm1d(out_dim)
         self.drop_out = nn.Dropout(drop_out_p)
         self.gelu = nn.GELU()
 

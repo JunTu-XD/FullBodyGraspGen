@@ -264,7 +264,7 @@ class DDPM(nn.Module):
         b = shape[0]
         x_t_minus_1 = torch.randn(shape, device=device)
         intermediates = [x_t_minus_1]
-        for i in tqdm(reversed(range(0, self.num_timesteps)), desc='Sampling t', total=self.num_timesteps):
+        for i in reversed(range(0, self.num_timesteps)):
             x_t_minus_1 = self.p_sample(x_t_minus_1, torch.full((b,), i,  device=device, dtype=torch.long), condition=condition,
                                 clip_denoised=self.clip_denoised)
             if i % self.log_every_t == 0 or i == self.num_timesteps - 1:
@@ -272,7 +272,7 @@ class DDPM(nn.Module):
         ## now it's x_0
         if return_intermediates:
             return x_t_minus_1, intermediates
-        return x_t_minus_1
+        return torch.clip(x_t_minus_1, -1, 1)
 
     @torch.no_grad()
     def sample(self, batch_size=16, condition = None, return_intermediates=False, ddim=True, ddim_steps=200, **kwargs):
