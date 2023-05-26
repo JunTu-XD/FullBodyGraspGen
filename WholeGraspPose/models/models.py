@@ -287,7 +287,10 @@ class FullBodyGraspNet(nn.Module):
         z_s = z.rsample()
         ## Diffusion, Denosing
         _, _, _, _, l3_xyz, l3_f = object_cond
-        _diffusion_params = {"batch_size": z_s.shape[0], "condition": self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)}
+        _diffusion_params = {"batch_size": z_s.shape[0],
+                             "condition":None
+                             # "condition": self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)
+                             }
 
 
         z_d = self.diffusion.sample(ddim=False, **_diffusion_params)
