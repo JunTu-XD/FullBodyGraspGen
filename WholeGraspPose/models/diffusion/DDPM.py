@@ -136,7 +136,7 @@ class DDPM(nn.Module):
         self.register_buffer('alphas_cumprod_prev', to_torch(alphas_cumprod_prev))
 
         # calculations for diffusion q(x_t | x_{t-1}) and others
-        self.register_buffer('sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod)))
+        self.register_buffer('sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod))) # alpha_bar
         self.register_buffer('sqrt_one_minus_alphas_cumprod', to_torch(np.sqrt(1. - alphas_cumprod)))
         self.register_buffer('log_one_minus_alphas_cumprod', to_torch(np.log(1. - alphas_cumprod)))
         self.register_buffer('sqrt_recip_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod)))
@@ -209,6 +209,7 @@ class DDPM(nn.Module):
         :param noise:
         :return: x_0
         """
+
         return (
                 extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t -
                 extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x_t.shape) * noise
@@ -221,9 +222,9 @@ class DDPM(nn.Module):
         posterior_mean, posterior_variance, posterior_log_variance_clipped
         """
         posterior_mean = (
-                extract_into_tensor(self.posterior_mean_coef1, t, x_t.shape) * x_start +
-                extract_into_tensor(self.posterior_mean_coef2, t, x_t.shape) * x_t
-        )
+                    extract_into_tensor(self.posterior_mean_coef1, t, x_t.shape) * x_start +
+                    extract_into_tensor(self.posterior_mean_coef2, t, x_t.shape) * x_t
+            )
         posterior_variance = extract_into_tensor(self.posterior_variance, t, x_t.shape)
         posterior_log_variance_clipped = extract_into_tensor(self.posterior_log_variance_clipped, t, x_t.shape)
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
@@ -239,6 +240,7 @@ class DDPM(nn.Module):
         model_mean, posterior_variance, posterior_log_variance
         """
         model_out = self.model(x=x, t=t, condition=condition)
+
         if self.parameterization == "eps":
             x_recon = self.predict_start_from_noise(x, t=t, noise=model_out)
         elif self.parameterization == "x0":
@@ -252,7 +254,7 @@ class DDPM(nn.Module):
     @torch.no_grad()
     def p_sample(self, x, t, condition=None, clip_denoised=True, repeat_noise=False):
         b, *_, device = *x.shape, x.device
-        model_mean, _, model_log_variance = self.p_mean_variance(x=x, t=t, condition=condition, clip_denoised=clip_denoised)
+        model_mean, model_variance, model_log_variance = self.p_mean_variance(x=x, t=t, condition=condition, clip_denoised=clip_denoised)
         noise = noise_like(x.shape, device, repeat_noise)
         # no noise when t == 0
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
@@ -272,7 +274,7 @@ class DDPM(nn.Module):
         ## now it's x_0
         if return_intermediates:
             return x_t_minus_1, intermediates
-        return torch.clip(x_t_minus_1, -1, 1)
+        return x_t_minus_1
 
     @torch.no_grad()
     def sample(self, batch_size=16, condition = None, return_intermediates=False, ddim=True, ddim_steps=200, **kwargs):

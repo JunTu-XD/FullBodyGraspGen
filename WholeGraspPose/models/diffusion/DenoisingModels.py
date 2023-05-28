@@ -138,10 +138,15 @@ class FlatPush(nn.Module):
 
         # The FlatPush MLP
         layers = []
-        for i in range(depth):
+        layers.append(nn.Linear(input_dim, out_dim))
+        # layers.append(nn.BatchNorm1d(out_dim))
+        # layers.append(nn.GELU())
+        layers.append(nn.Dropout(drop_out_p))
+
+        for i in range(depth-1):
             layers.append(nn.Linear(out_dim, out_dim))
-            layers.append(nn.BatchNorm1d(out_dim))
-            layers.append(nn.GELU())
+            # layers.append(nn.BatchNorm1d(out_dim))
+            # layers.append(nn.GELU())
             layers.append(nn.Dropout(drop_out_p))
         layers.append(nn.Linear(out_dim, out_dim))
         self.model = nn.Sequential(*layers)
