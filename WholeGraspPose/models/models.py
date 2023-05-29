@@ -288,7 +288,7 @@ class FullBodyGraspNet(nn.Module):
         ## Diffusion, Denosing
         _, _, _, _, l3_xyz, l3_f = object_cond
         _diffusion_params = {"batch_size": z_s.shape[0],
-                             "condition":None
+                             "condition": None
                              # "condition": self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)
                              }
 

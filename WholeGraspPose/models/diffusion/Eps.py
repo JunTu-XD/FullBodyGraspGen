@@ -14,14 +14,14 @@ class Eps(nn.Module):
         # self.model = FlatPush(depth=2, drop_out_p=0, input_dim=D, out_dim=D)
 
         self.time_embed = nn.Sequential(
-            linear(self.time_emb_dim , self.time_emb_dim * 4),
-            SiLU(),
-            linear(self.time_emb_dim * 4 , self.time_emb_dim),
+            nn.Linear(self.time_emb_dim , self.time_emb_dim * 4),
+            nn.SiLU(),
+            nn.Linear(self.time_emb_dim * 4 , self.time_emb_dim),
         )
-        self.model = TransformerDenoising(vec_dim=D, drop_out_p=0, heads=4, depth=2)
+        self.model = TransformerDenoising(seq_len=16, vec_dim=D, drop_out_p=0.2, heads=16, depth=8)
 
     def forward(self, x, t, condition):
-        t_emb = get_timestep_embedding(timesteps=t, embedding_dim=self.time_emb_dim)
-        _x = torch.cat(((x + t_emb), condition), dim=1)
+        t_emb =  self.time_embed(get_timestep_embedding(t, self.time_emb_dim))
+        # _x = torch.cat(((x + t_emb), condition), dim=1)
 
         return self.model(feature_vec=x, time=t_emb, condition=condition)
