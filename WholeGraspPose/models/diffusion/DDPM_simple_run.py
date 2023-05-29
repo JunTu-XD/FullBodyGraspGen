@@ -15,17 +15,14 @@ from tqdm import tqdm
 from absl import app, flags
 from WholeGraspPose.models.diffusion.DDIM import DDIMSampler
 from WholeGraspPose.models.diffusion.DDPM import DDPM
-from WholeGraspPose.models.diffusion.DDPM_simple import GaussianDiffusionTrainer, GaussianDiffusionSampler
 from WholeGraspPose.models.diffusion.Eps import Eps
-from WholeGraspPose.models.diffusion.improved_diffusion.script_util import create_gaussian_diffusion
-from WholeGraspPose.models.diffusion.utils import get_timestep_embedding
+
 from WholeGraspPose.models.models import FullBodyGraspNet
 import torch
-from denoising_diffusion_pytorch import Unet, GaussianDiffusion
 
 T = 1000
 
-B = 1024
+B = 128
 D = 16
 
 x_0 = torch.randn((B, D)) * torch.randint(-3, 3, (B, D))
@@ -46,7 +43,7 @@ ddpm = DDPM(
     x_dim=D,
     log_every_t=1,
     parameterization='eps',
-    clip_denoised=False,
+    clip_denoised=True,
 )
 ddpm.learning_rate = 0.001
 
@@ -114,7 +111,7 @@ def test_train():
     recon_seq = []
     ddim_recon_seq = []
     diff_loss = []
-    for epoch in range(10):
+    for epoch in range(5):
         for _i, (_, label) in enumerate(tqdm(saga_train_loader)):
             optimimzer.zero_grad()
             t_label = label[:, :16]
@@ -128,7 +125,7 @@ def test_train():
             optimimzer.step()
 
             # ema(ddpm, ema_model, 0.7)
-            if _i % 100 == 0:
+            if _i % 500 == 0:
                 with torch.no_grad():
                     bs = B
                     shape = D
@@ -145,7 +142,7 @@ def test_train():
             diffusion_lr_scheduler.step()
 
     _num_draw = 4
-    sample_x0, seq = ddpm.sample(batch_size=512, ddim=False, return_intermediates=True)
+    sample_x0, seq = ddpm.sample(batch_size=1024, ddim=False, return_intermediates=True)
     centers_seq = []
 
     # eval_data = data_dict[names[3]][:, 0:16]

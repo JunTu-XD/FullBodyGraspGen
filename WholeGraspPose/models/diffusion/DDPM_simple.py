@@ -1,163 +1,78 @@
+import functools
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from matplotlib import pyplot as plt
+from torch.optim import AdamW
+from tqdm import tqdm
+
+from WholeGraspPose.models.diffusion.Eps import Eps
+from WholeGraspPose.models.diffusion.improved_diffusion.script_util import create_gaussian_diffusion
+
+D = 16
+B = 128
+T = 1000
+miu = torch.ones((B, D))# torch.distributions.Normal(torch.zeros((D,))+0.1 , torch.ones((D,))).rsample()
+sigma = 1
+data_gen = lambda _=None: torch.ones((B, D)) # torch.distributions.Normal(miu, sigma).sample((B,))
 
 
-def extract(v, t, x_shape):
-    """
-    Extract some coefficients at specified timesteps, then reshape to
-    [batch_size, 1, 1, 1, 1, ...] for broadcasting purposes.
-    """
-    out = torch.gather(v, index=t, dim=0).float()
-    return out.view([t.shape[0]] + [1] * (len(x_shape) - 1))
+gau_diff = create_gaussian_diffusion(steps=T)
+model = Eps(D=D)
+
+loss = gau_diff.training_losses(model, x_start=data_gen(), t=torch.randint(0, T, (B,)) )
+print(loss)
+
+opt = AdamW(model.parameters(), lr=0.0001, weight_decay=0.8)
+
+diff_loss = []
+dists = []
+for i in tqdm(range(10000)):
+        opt.zero_grad()
+
+        t=torch.randint(0, T, (B,))
+        x_0 = data_gen()
+        compute_losses = functools.partial(
+                gau_diff.training_losses,
+                model,
+                x_0,
+                t,
+
+            )
+        losses = compute_losses()
+        loss = losses['loss'].mean()
+        diff_loss.append(loss.detach())
+
+        loss.backward()
+        opt.step()
 
 
-class GaussianDiffusionTrainer(nn.Module):
-    def __init__(self, model, beta_1, beta_T, T):
-        super().__init__()
+plt.title("diffusion loss")
+plt.plot(diff_loss)
+plt.show()
 
-        self.model = model
-        self.T = T
+seq = gau_diff.p_sample_loop_progressive(model, shape=(3, D))
+centers_seq = []
 
-        self.register_buffer(
-            'betas', torch.linspace(beta_1, beta_T, T).double())
-        alphas = 1. - self.betas
-        alphas_bar = torch.cumprod(alphas, dim=0)
+# eval_data = data_dict[names[3]][:, 0:16]
+# eval_miu = data_dict[names[3]][:, 16:32]
+# eval_var = data_dict[names[3]][:, 32:]
+eval_miu = miu[None, :]
 
-        # calculations for diffusion q(x_t | x_{t-1}) and others
-        self.register_buffer(
-            'sqrt_alphas_bar', torch.sqrt(alphas_bar))
-        self.register_buffer(
-            'sqrt_one_minus_alphas_bar', torch.sqrt(1. - alphas_bar))
-
-    def forward(self, x_0):
-        """
-        Algorithm 1.
-        """
-        t = torch.randint(self.T, size=(x_0.shape[0], ), device=x_0.device)
-        noise = torch.randn_like(x_0)
-        x_t = (
-            extract(self.sqrt_alphas_bar, t, x_0.shape) * x_0 +
-            extract(self.sqrt_one_minus_alphas_bar, t, x_0.shape) * noise)
-        loss = F.mse_loss(self.model(x_t, t), noise, reduction='none')
-        return loss
+# min_indices = torch.argmin(torch.cdist(sample_x0, eval_miu), dim=1)
+dists = []
+# min_d =  torch.min(torch.cdist(sample_x0, data_dict[names[3]][:, 0:16]), dim=1)
+# for _ in range(_num_draw):
+#         centers_seq.append([])
+for _s in seq:
+        min_dist = (_s['sample'] - 1).norm(dim=1).mean()
+        dists.append(min_dist.mean())
+#     # centers_seq[_i].append(min_dist)
+#     centers_seq[_i].append(torch.mean(_s, dim=0)[_i])
 
 
-class GaussianDiffusionSampler(nn.Module):
-    def __init__(self, model, beta_1, beta_T, T, img_size=32,
-                 mean_type='eps', var_type='fixedlarge'):
-        assert mean_type in ['xprev' 'xstart', 'epsilon']
-        assert var_type in ['fixedlarge', 'fixedsmall']
-        super().__init__()
-
-        self.model = model
-        self.T = T
-        self.img_size = img_size
-        self.mean_type = mean_type
-        self.var_type = var_type
-
-        self.register_buffer(
-            'betas', torch.linspace(beta_1, beta_T, T).double())
-        alphas = 1. - self.betas
-        alphas_bar = torch.cumprod(alphas, dim=0)
-        alphas_bar_prev = F.pad(alphas_bar, [1, 0], value=1)[:T]
-
-        # calculations for diffusion q(x_t | x_{t-1}) and others
-        self.register_buffer(
-            'sqrt_recip_alphas_bar', torch.sqrt(1. / alphas_bar))
-        self.register_buffer(
-            'sqrt_recipm1_alphas_bar', torch.sqrt(1. / alphas_bar - 1))
-
-        # calculations for posterior q(x_{t-1} | x_t, x_0)
-        self.register_buffer(
-            'posterior_var',
-            self.betas * (1. - alphas_bar_prev) / (1. - alphas_bar))
-        # below: log calculation clipped because the posterior variance is 0 at
-        # the beginning of the diffusion chain
-        self.register_buffer(
-            'posterior_log_var_clipped',
-            torch.log(
-                torch.cat([self.posterior_var[1:2], self.posterior_var[1:]])))
-        self.register_buffer(
-            'posterior_mean_coef1',
-            torch.sqrt(alphas_bar_prev) * self.betas / (1. - alphas_bar))
-        self.register_buffer(
-            'posterior_mean_coef2',
-            torch.sqrt(alphas) * (1. - alphas_bar_prev) / (1. - alphas_bar))
-
-    def q_mean_variance(self, x_0, x_t, t):
-        """
-        Compute the mean and variance of the diffusion posterior
-        q(x_{t-1} | x_t, x_0)
-        """
-        assert x_0.shape == x_t.shape
-        posterior_mean = (
-            extract(self.posterior_mean_coef1, t, x_t.shape) * x_0 +
-            extract(self.posterior_mean_coef2, t, x_t.shape) * x_t
-        )
-        posterior_log_var_clipped = extract(
-            self.posterior_log_var_clipped, t, x_t.shape)
-        return posterior_mean, posterior_log_var_clipped
-
-    def predict_xstart_from_eps(self, x_t, t, eps):
-        assert x_t.shape == eps.shape
-        return (
-            extract(self.sqrt_recip_alphas_bar, t, x_t.shape) * x_t -
-            extract(self.sqrt_recipm1_alphas_bar, t, x_t.shape) * eps
-        )
-
-    def predict_xstart_from_xprev(self, x_t, t, xprev):
-        assert x_t.shape == xprev.shape
-        return (  # (xprev - coef2*x_t) / coef1
-            extract(
-                1. / self.posterior_mean_coef1, t, x_t.shape) * xprev -
-            extract(
-                self.posterior_mean_coef2 / self.posterior_mean_coef1, t,
-                x_t.shape) * x_t
-        )
-
-    def p_mean_variance(self, x_t, t):
-        # below: only log_variance is used in the KL computations
-        model_log_var = {
-            # for fixedlarge, we set the initial (log-)variance like so to
-            # get a better decoder log likelihood
-            'fixedlarge': torch.log(torch.cat([self.posterior_var[1:2],
-                                               self.betas[1:]])),
-            'fixedsmall': self.posterior_log_var_clipped,
-        }[self.var_type]
-        model_log_var = extract(model_log_var, t, x_t.shape)
-
-        # Mean parameterization
-        if self.mean_type == 'xprev':       # the model predicts x_{t-1}
-            x_prev = self.model(x_t, t)
-            x_0 = self.predict_xstart_from_xprev(x_t, t, xprev=x_prev)
-            model_mean = x_prev
-        elif self.mean_type == 'xstart':    # the model predicts x_0
-            x_0 = self.model(x_t, t)
-            model_mean, _ = self.q_mean_variance(x_0, x_t, t)
-        elif self.mean_type == 'epsilon':   # the model predicts epsilon
-            eps = self.model(x_t, t)
-            x_0 = self.predict_xstart_from_eps(x_t, t, eps=eps)
-            model_mean, _ = self.q_mean_variance(x_0, x_t, t)
-        else:
-            raise NotImplementedError(self.mean_type)
-        x_0 = torch.clip(x_0, -1., 1.)
-
-        return model_mean, model_log_var
-
-    def forward(self, x_T):
-        """
-        Algorithm 2.
-        """
-        x_t = x_T
-        for time_step in reversed(range(self.T)):
-            t = x_t.new_ones([x_T.shape[0], ], dtype=torch.long) * time_step
-            mean, log_var = self.p_mean_variance(x_t=x_t, t=t)
-            # no noise when t == 0
-            if time_step > 0:
-                noise = torch.randn_like(x_t)
-            else:
-                noise = 0
-            x_t = mean + torch.exp(0.5 * log_var) * noise
-        x_0 = x_t
-        return torch.clip(x_0, -1, 1)
+plt.plot(dists)
+plt.hlines(y=(gau_diff.p_sample_loop(model, shape=(2, D)) - miu[None, :]).norm(dim=1).mean(), xmin=0, xmax=T, linestyles="--",
+           label='l2 dist: data gen by miu and miu')
+plt.grid()
+plt.legend()
+plt.show()

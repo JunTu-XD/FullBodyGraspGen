@@ -38,7 +38,7 @@ class UNet1D(nn.Module):
         self.bn_32 = nn.BatchNorm1d(32)
 
         self.drop_out = nn.Dropout(drop_out_p)
-        self.gelu = nn.GELU()
+        self.gelu = nn.SiLU()
 
         self.warned = False
 
