@@ -43,7 +43,7 @@ class DDPM(nn.Module):
     # classic DDPM with Gaussian diffusion
     def __init__(self,
                  model=None,
-                 timesteps=1000,
+                 timesteps=500,
                  beta_schedule="linear",
                  loss_type="l2",
                  ckpt_path=None,
@@ -51,7 +51,7 @@ class DDPM(nn.Module):
                  load_only_unet=False,
                  monitor="val/loss",
                  use_ema=False,
-                 x_dim=512,
+                 x_dim=16,
                  log_every_t=100,
                  clip_denoised=True,
                  linear_start=1e-4,

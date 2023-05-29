@@ -2,7 +2,6 @@ import torch
 from torch import nn
 
 from WholeGraspPose.models.diffusion.DenoisingModels import UNet1D, FlatPush, TransformerDenoising
-from WholeGraspPose.models.diffusion.improved_diffusion.nn import SiLU, linear, timestep_embedding
 from WholeGraspPose.models.diffusion.utils import get_timestep_embedding
 
 
@@ -21,16 +20,8 @@ class Eps(nn.Module):
         )
         self.model = TransformerDenoising(vec_dim=D, drop_out_p=0, heads=4, depth=2)
 
-    # def forward(self, x, t, condition=None):
-    #     return self.a * x + (self.b*t).reshape((t.shape[0],1)) + self.c
+    def forward(self, x, t, condition):
+        t_emb = get_timestep_embedding(timesteps=t, embedding_dim=self.time_emb_dim)
+        _x = torch.cat(((x + t_emb), condition), dim=1)
 
-    def forward(self, x, t, condition=None):
-        # t_emb = get_timestep_embedding(timesteps=t, embedding_dim=self.time_emb_dim)
-        # if condition is not None:
-        #     _x = torch.cat(((x + t_emb), condition), dim=1)
-
-        # else:
-        #     _x = (x + t_emb)
-        emb = self.time_embed(get_timestep_embedding(t, self.time_emb_dim))
-
-        return self.model(feature_vec=x, time=emb, condition=condition)
+        return self.model(feature_vec=x, time=t_emb, condition=condition)
