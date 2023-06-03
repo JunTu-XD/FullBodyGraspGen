@@ -10,13 +10,6 @@ from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 
 from . import dist_util, logger
-from .fp16_util import (
-    make_master_params,
-    master_params_to_model_params,
-    model_grads_to_master_grads,
-    unflatten_master_params,
-    zero_grad,
-)
 from .nn import update_ema
 from .resample import LossAwareSampler, UniformSampler
 

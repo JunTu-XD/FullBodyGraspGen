@@ -11,9 +11,10 @@ from WholeGraspPose.models.diffusion.improved_diffusion.script_util import creat
 D = 16
 B = 128
 T = 1000
-miu = torch.ones((B, D))# torch.distributions.Normal(torch.zeros((D,))+0.1 , torch.ones((D,))).rsample()
+
+miu = torch.distributions.Normal(torch.zeros((D,))+0.1 , torch.ones((D,))).rsample()
 sigma = 1
-data_gen = lambda _=None: torch.ones((B, D)) # torch.distributions.Normal(miu, sigma).sample((B,))
+data_gen = lambda _=None: torch.distributions.Normal(miu, sigma).sample((B,))
 
 
 gau_diff = create_gaussian_diffusion(steps=T)
@@ -22,11 +23,11 @@ model = Eps(D=D)
 loss = gau_diff.training_losses(model, x_start=data_gen(), t=torch.randint(0, T, (B,)) )
 print(loss)
 
-opt = AdamW(model.parameters(), lr=0.0001, weight_decay=0.8)
+opt = AdamW(model.parameters(), lr=0.001, weight_decay=0.8)
 
 diff_loss = []
 dists = []
-for i in tqdm(range(10000)):
+for i in tqdm(range(3000)):
         opt.zero_grad()
 
         t=torch.randint(0, T, (B,))

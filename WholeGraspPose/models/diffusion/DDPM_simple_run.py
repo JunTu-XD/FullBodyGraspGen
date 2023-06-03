@@ -5,7 +5,7 @@ import sys
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-# mpl.use('macosx')
+mpl.use('macosx')
 import torch.utils.data as td
 import torch
 from torch import nn, optim
@@ -23,7 +23,7 @@ import torch
 T = 1000
 
 B = 128
-D = 16
+D = 256
 
 x_0 = torch.randn((B, D)) * torch.randint(-3, 3, (B, D))
 t = torch.randint(0, T, (B,))
@@ -117,12 +117,13 @@ def test_train():
             t_label = label[:, :16]
             # t_mu = label[:, 16:32]
             # t_var   = label[32:48,:]
-            # x_0 = data_gen()
-            x_0 = t_label
+            x_0 = data_gen()
+            # x_0 = t_label
             _loss, _ = ddpm(x_0, condition=None)
             clip_grad_norm_(ddpm.model.parameters(), 1.0)
             _loss.backward()
             optimimzer.step()
+            diff_loss.append(_loss.detach())
 
             # ema(ddpm, ema_model, 0.7)
             if _i % 500 == 0:
@@ -137,18 +138,18 @@ def test_train():
                     #
                     # ddim_recon_seq.append(ddim_recon.detach())
                     # recon_seq.append(temp_loss.detach())
-                    diff_loss.append(_loss.detach())
+                    # diff_loss.append(_loss.detach())
 
             diffusion_lr_scheduler.step()
 
     _num_draw = 4
-    sample_x0, seq = ddpm.sample(batch_size=1024, ddim=False, return_intermediates=True)
+    sample_x0, seq = ddpm.sample(batch_size=512, ddim=False, return_intermediates=True)
     centers_seq = []
 
     # eval_data = data_dict[names[3]][:, 0:16]
-    eval_miu = data_dict[names[3]][:, 16:32]
+    # eval_miu = data_dict[names[3]][:, 16:32]
     # eval_var = data_dict[names[3]][:, 32:]
-    # eval_miu = miu[None, :]
+    eval_miu = miu[None, :]
 
     min_indices = torch.argmin(torch.cdist(sample_x0, eval_miu), dim=1)
     dists=[]
@@ -169,8 +170,11 @@ def test_train():
         # plt.plot(list(range(T+1)), centers_seq[_i])
 
     plt.plot(dists)
-    plt.hlines(y=(data_gen() - miu[None, :]).norm(dim=1).mean(), xmin=0, xmax=T, linestyles="--", label='l2 dist: data gen by miu and miu')
+    plt.hlines(y=(data_gen() - miu[None, :]).norm(dim=1).mean(), xmin=0, xmax=T, linestyles="--", label='mean l2 dist between samples from original distribution and its mean')
     plt.grid()
+    plt.ylabel("l2 distance to mean of x_0")
+    plt.xlabel("t")
+    plt.title('256d denoising with same model structure and depth')
     plt.legend()
     plt.show()
 
@@ -342,7 +346,10 @@ def test_FBGrasp_Load():
 
 if __name__ == "__main__":
     # one_d_diff()
-    plot_ddpm_alpha_beta()
+    # plot_ddpm_alpha_beta()
     # tb = get_timestep_embedding(torch.tensor([1,100,1000]), 16)
-    test_train()
+    # test_train()
 
+    plt.plot([1,2,3])
+    plt.ylabel("L2 distance between sampled x_t mean \nand original distribution mean.")
+    plt.show()
