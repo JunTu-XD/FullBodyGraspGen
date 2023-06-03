@@ -60,7 +60,7 @@ if __name__ == '__main__':
         'use_pretrained': "pretrained_model/male_grasppose_model.pt",
         'train_1_stage': False,
         'train_2_stage': True,
-        'debug': False
+        'debug': args.debug
     }
 
     cfg = Config(default_cfg_path=default_cfg_path, **cfg)
