@@ -17,10 +17,15 @@ class Eps(nn.Module):
             nn.SiLU(),
             nn.Linear(self.time_emb_dim * 4 , self.time_emb_dim),
         )
+        self.cond_mapping = nn.Sequential(
+            nn.Linear(2, int(D / 2)),
+            nn.SiLU(),
+            nn.Linear(int(D / 2), D),
+        )
         self.model = TransformerDenoising(seq_len=16, vec_dim=D, drop_out_p=0.2, heads=16, depth=16)
 
     def forward(self, x, t, condition):
-        t_emb =  self.time_embed(get_timestep_embedding(t, self.time_emb_dim))
-        # _x = torch.cat(((x + t_emb), condition), dim=1)
+        t_emb = self.time_embed(get_timestep_embedding(t, self.time_emb_dim))
+        _condition = self.cond_mapping(condition)
 
-        return self.model(feature_vec=x, time=t_emb, condition=condition)
+        return self.model(feature_vec=x, time=t_emb, condition= _condition)

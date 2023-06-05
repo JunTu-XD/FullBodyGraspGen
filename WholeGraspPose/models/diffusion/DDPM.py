@@ -236,17 +236,15 @@ class DDPM(nn.Module):
         """
         p(x_t-1 | x_t, x_0, t)
         where x_0 = reconstruct by (self.model out .e.g. noise, x_t. t)
+        :param condition:
         :param x:
         :param t:
         :param clip_denoised:
         :return:
         model_mean, posterior_variance, posterior_log_variance
         """
-
-        B, C = x.shape[0]
-
         pred_eps_cond = self.model(x=x, t=t, condition=condition)
-        _condition = torch.zeros(condition, device=self.device)
+        _condition = torch.zeros_like(condition, device=self.device)
         pred_eps_uncond = self.model(x=x, t=t, condition=_condition)
         pred_eps = (1 + self.w) * pred_eps_cond - self.w * pred_eps_uncond
 
@@ -343,7 +341,7 @@ class DDPM(nn.Module):
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
 
         B = x_noisy.shape[0]
-        condition[torch.where(torch.rand(B) < self.classifier_free_cond_dropout)] = 0
+        condition[torch.rand(B) < self.classifier_free_cond_dropout] = 0
 
         model_output = self.model(x_noisy, t=t, condition=condition)
 
