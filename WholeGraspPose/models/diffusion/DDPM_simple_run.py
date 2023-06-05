@@ -2,7 +2,7 @@ import argparse
 import copy
 import os
 import sys
-
+from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 mpl.use('macosx')
@@ -20,10 +20,15 @@ from WholeGraspPose.models.diffusion.Eps import Eps
 from WholeGraspPose.models.models import FullBodyGraspNet
 import torch
 
+writer = SummaryWriter(log_dir="./test/logs")
+# writer.add_scalar("loss", loss )
+# writer.close()
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 T = 1000
 
 B = 128
-D = 256
+D = 16
 
 x_0 = torch.randn((B, D)) * torch.randint(-3, 3, (B, D))
 t = torch.randint(0, T, (B,))
@@ -59,7 +64,7 @@ ddpm.learning_rate = 0.001
 
 miu = torch.distributions.Normal(torch.zeros((D,))+0.1 , torch.ones((D,))).rsample()
 sigma = 1
-data_gen = lambda _=None: torch.distributions.Normal(miu, sigma).sample((B,))
+data_gen = lambda _=None: torch.distributions.Normal(0, sigma).sample((B,D))
 
 recon_loss = torch.nn.MSELoss()
 
@@ -89,7 +94,7 @@ def plot_ddpm_alpha_beta():
     plt.show()
 
 def test_train():
-    data_dict = torch.load("./dataset/male_data_dict.pt", map_location=torch.device("cpu"))
+    data_dict = torch.load("./dataset/male_data_dict.pt", map_location=device)
     names = list(data_dict.keys())
     train_set = td.TensorDataset(data_dict[names[0]], data_dict[names[1]])
     eval_set = td.TensorDataset(data_dict[names[2]], data_dict[names[3]])
@@ -111,20 +116,26 @@ def test_train():
     recon_seq = []
     ddim_recon_seq = []
     diff_loss = []
-    for epoch in range(5):
+    for epoch in range(1):
         for _i, (_, label) in enumerate(tqdm(saga_train_loader)):
             optimimzer.zero_grad()
             t_label = label[:, :16]
-            # t_mu = label[:, 16:32]
-            # t_var   = label[32:48,:]
-            x_0 = data_gen()
+            t_mu = label[:, 16:32]
+            t_var = label[:, 32:48]
+            # x_0 = data_gen()
             # x_0 = t_label
-            _loss, _ = ddpm(x_0, condition=None)
+            x_0 = torch.distributions.Normal(t_mu, t_var).sample()
+            cond = torch.zeros((x_0.shape[0], 2))
+            cond[torch.abs(t_mu[:, 2]) > 0.003, 0] = 1
+            cond[torch.abs(t_mu[:, 2]) <= 0.003, 1] = 1
+
+            _loss, _ = ddpm(x_0, condition=cond)
             clip_grad_norm_(ddpm.model.parameters(), 1.0)
             _loss.backward()
             optimimzer.step()
             diff_loss.append(_loss.detach())
 
+            writer.add_scalar("loss", _loss.detach(), epoch * len(saga_train_loader) + _i)
             # ema(ddpm, ema_model, 0.7)
             if _i % 500 == 0:
                 with torch.no_grad():
@@ -143,40 +154,55 @@ def test_train():
             diffusion_lr_scheduler.step()
 
     _num_draw = 4
-    sample_x0, seq = ddpm.sample(batch_size=512, ddim=False, return_intermediates=True)
+    sample_num = 128
+    cond = torch.zeros((sample_num, 2))
+    cond[:, 0] += 1
+    sample_x0, seq = ddpm.sample(batch_size=sample_num, ddim=False, return_intermediates=True,
+                                 condition=cond)
     centers_seq = []
 
     # eval_data = data_dict[names[3]][:, 0:16]
-    # eval_miu = data_dict[names[3]][:, 16:32]
-    # eval_var = data_dict[names[3]][:, 32:]
-    eval_miu = miu[None, :]
+    eval_miu = data_dict[names[3]][:, 16:32]
+    eval_cond = torch.zeros((eval_miu.shape[0], 2))
+    eval_cond[torch.abs(eval_miu[:, 2]) > 0.003, 0] = 1
+    eval_cond[torch.abs(eval_miu[:, 2]) <= 0.003, 1] = 1
 
-    min_indices = torch.argmin(torch.cdist(sample_x0, eval_miu), dim=1)
-    dists=[]
+    # eval_var = data_dict[names[3]][:, 32:]
+    # eval_miu = miu[None, :]
+    cond_0_miu = eval_miu[eval_cond[:, 0] == 1]
+    cond_1_miu = eval_miu[eval_cond[:, 1] == 1]
+
+    cond_0_min_indices = torch.argmin(torch.cdist(sample_x0, cond_0_miu), dim=1)
+    cond_1_min_indices = torch.argmin(torch.cdist(sample_x0, cond_1_miu), dim=1)
+    dists = []
     # min_d =  torch.min(torch.cdist(sample_x0, data_dict[names[3]][:, 0:16]), dim=1)
-    for _ in range(_num_draw):
-        centers_seq.append([])
-    for _s in reversed(seq):
-            min_dist = (_s - eval_miu[min_indices, :]).norm(dim=1)
-            dists.append(min_dist.mean())
+    # for _ in range(_num_draw):
+    #     centers_seq.append([])
+    for _i, _s in enumerate(reversed(seq)):
+            min_dist_0 = (_s - cond_0_miu[cond_0_min_indices, :]).norm(dim=1)
+            min_dist_1 = (_s - cond_1_miu[cond_1_min_indices, :]).norm(dim=1)
+            writer.add_scalar("dist_diff_0and1",  torch.abs(min_dist_1.mean()- min_dist_0.mean()), _i)
+            writer.add_scalar("min_dist", torch.min(min_dist_1.mean(), min_dist_0.mean()), _i)
         #     # centers_seq[_i].append(min_dist)
         #     centers_seq[_i].append(torch.mean(_s, dim=0)[_i])
 
-    plt.title("diffusion loss")
-    plt.plot(diff_loss)
-    plt.show()
+    # plt.title("diffusion loss")
+    # plt.plot(diff_loss)
+    # plt.show()
 
     # for _i in range(len(centers_seq)):
         # plt.plot(list(range(T+1)), centers_seq[_i])
 
-    plt.plot(dists)
-    plt.hlines(y=(data_gen() - miu[None, :]).norm(dim=1).mean(), xmin=0, xmax=T, linestyles="--", label='mean l2 dist between samples from original distribution and its mean')
-    plt.grid()
-    plt.ylabel("l2 distance to mean of x_0")
-    plt.xlabel("t")
-    plt.title('256d denoising with same model structure and depth')
-    plt.legend()
-    plt.show()
+    # plt.plot(dists)
+    # plt.hlines(y=(data_gen()).norm(dim=1).mean(), xmin=0, xmax=T, linestyles="--", label='mean l2 dist between samples from original distribution and its mean')
+    # plt.grid()
+    # plt.ylabel("l2 distance to mean of x_0")
+    # plt.xlabel("t")
+    # plt.title('256d denoising with same model structure and depth')
+    # plt.legend()
+    # plt.show()
+
+    writer.close()
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -328,8 +354,8 @@ def test_FBGrasp_Load():
     full_grasp_net = FullBodyGraspNet(cfg)
     check_params = torch.detach_copy(full_grasp_net.marker_net.enc_rb1.fc1.weight)
     check_ada_params = torch.detach_copy(full_grasp_net.adaptor.fc1.weight)
-    full_grasp_net.load_state_dict(torch.load(cfg.use_pretrained, map_location="cpu"), strict=False)
-    full_grasp_net.adaptor.load_state_dict(torch.load(cfg.pretrained_adaptor, map_location="cpu"), strict=False)
+    full_grasp_net.load_state_dict(torch.load(cfg.use_pretrained, map_location=device), strict=False)
+    full_grasp_net.adaptor.load_state_dict(torch.load(cfg.pretrained_adaptor, map_location=device), strict=False)
 
     load_params = torch.detach_copy(full_grasp_net.marker_net.enc_rb1.fc1.weight)
     load_ada_params = torch.detach_copy(full_grasp_net.adaptor.fc1.weight)
@@ -348,8 +374,8 @@ if __name__ == "__main__":
     # one_d_diff()
     # plot_ddpm_alpha_beta()
     # tb = get_timestep_embedding(torch.tensor([1,100,1000]), 16)
-    # test_train()
+    test_train()
 
-    plt.plot([1,2,3])
-    plt.ylabel("L2 distance between sampled x_t mean \nand original distribution mean.")
-    plt.show()
+    # plt.plot([1,2,3])
+    # plt.ylabel("L2 distance between sampled x_t mean \nand original distribution mean.")
+    # plt.show()

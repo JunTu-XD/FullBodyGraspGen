@@ -64,7 +64,7 @@ class LoadData(data.Dataset):
                            'female': ['s3', 's4', 's5', 's6', 's7']}
         else:
             subsets_dict = {'male': ['s1'],
-                            'female': ['s3']}
+                            'female': ['s5']}
         subsets = subsets_dict[self.gender]
 
         print('loading {} dataset: {}'.format(self.gender, subsets))
@@ -73,7 +73,7 @@ class LoadData(data.Dataset):
             rec_list += [os.path.join(subset_path, i) for i in os.listdir(subset_path)]
 
         index = 0
-
+        obj_type_list=[]
         for rec in rec_list:
             data = np.load(rec, allow_pickle=True)
 
@@ -88,6 +88,7 @@ class LoadData(data.Dataset):
             transf_transl_list.append(data['transf_transl'])
             normal_object_list.append(data['normal_object'])
             global_orient_object_list.append(data['global_orient_object'])
+            obj_type_list.append(obj_name)
 
             orient = torch.tensor(data['global_orient_object'])
             rot_mats = batch_rodrigues(orient.view(-1, 3)).view([orient.shape[0], 9]).numpy()
@@ -111,6 +112,7 @@ class LoadData(data.Dataset):
             else:
                 self.objs_frames[obj_name] = list(range(index, index+data['verts_object'].shape[0]))
             index += data['verts_object'].shape[0]
+
         output['transf_transl'] = torch.tensor(np.concatenate(transf_transl_list, axis=0))
         output['markers'] = torch.tensor(np.concatenate(markers_list, axis=0))              # (B, 99, 3)
         output['verts_object'] = torch.tensor(np.concatenate(verts_object_list, axis=0))    # (B, 2048, 3)
@@ -119,7 +121,7 @@ class LoadData(data.Dataset):
         output['normal_object'] = torch.tensor(np.concatenate(normal_object_list, axis=0))    # (B, 2048, 3)
         output['global_orient_object'] = torch.tensor(np.concatenate(global_orient_object_list, axis=0))    # (B, 2048, 3)
         output['rotmat'] = torch.tensor(np.concatenate(rotmat_list, axis=0))    # (B, 2048, 3)
-
+        output['obj_type'] = obj_type_list
         # SMPLX parameters
         output['smplxparams'] = {}
         for key in ['transl', 'global_orient', 'body_pose', 'jaw_pose', 'leye_pose', 'reye_pose', 'left_hand_pose', 'right_hand_pose', 'expression']:
