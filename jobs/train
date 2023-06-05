@@ -6,8 +6,8 @@
 #SBATCH --tmp=4000                         # per node!!
 #SBATCH  --gpus=rtx_2080_ti:1              # Ohter options are: --gpus=gtx_1080_ti:1  --gpus=rtx_2080_ti:1
 #SBATCH --job-name=train_job
-#SBATCH --output=./results/pretrained_ada_male/train.out
-#SBATCH --error=./results/pretrained_ada_male/train.err
+#SBATCH --output=./jobs/train.out
+#SBATCH --error=./jobs/train.err
 
 module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy
 source /cluster/scratch/juntuj/venvs/gt/bin/activate
