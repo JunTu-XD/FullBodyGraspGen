@@ -75,7 +75,7 @@ class LoadData(data.Dataset):
         index = 0
 
         label_list = []
-        with open(f'{"/".join(path.split("/")[:-1])}/all_labels.json') as json_file:
+        with open(f'{"/".join(path.split("/")[:-2])}/all_labels.json') as json_file:
             label_dict = json.load(json_file)
 
         for rec in rec_list:
