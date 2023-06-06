@@ -90,7 +90,7 @@ def load_object_data_uniform_sample(object_name, n_samples):
     transf_transl = transf_transl.to(grabpose.device)
     return {'verts_object':verts_object, 'normal_object': normal_object, 'global_orient':global_orient, 'global_orient_rotmat':global_orient_rotmat, 'feat_object':feat_object, 'transf_transl':transf_transl}
 
-def inference(grabpose, obj, n_samples, n_rand_samples, object_type, save_dir):
+def inference(grabpose, obj, n_samples, n_rand_samples, object_type, save_dir, sample_label):
     """ prepare test object data: [verts_object, feat_object(normal + rotmat), transf_transl] """
     ### object centered
     # for obj in grabpose.cfg.object_class:
@@ -107,7 +107,8 @@ def inference(grabpose, obj, n_samples, n_rand_samples, object_type, save_dir):
     object_contact_gen = []
     markers_contact_gen = []
     for i in range(n_samples_total):
-        sample_results = grabpose.full_grasp_net.sample(obj_data['verts_object'][None, i].repeat(n_rand_samples,1,1), obj_data['feat_object'][None, i].repeat(n_rand_samples,1,1), obj_data['transf_transl'][None, i].repeat(n_rand_samples,1))
+        sample_results = grabpose.full_grasp_net.sample(obj_data['verts_object'][None, i].repeat(n_rand_samples,1,1), obj_data['feat_object'][None, i].repeat(n_rand_samples,1,1), obj_data['transf_transl'][None, i].repeat(n_rand_samples,1),
+                                                        label=torch.nn.functional.one_hot(torch.tensor(sample_label), 2))
         markers_gen.append((sample_results[0]+obj_data['transf_transl'][None, i]))
         markers_contact_gen.append(sample_results[1])
         object_contact_gen.append(sample_results[2])
@@ -273,6 +274,9 @@ if __name__ == '__main__':
     parser.add_argument('--n_rand_samples_per_object', default = 1, type=int,
                         help='The number of whole-body poses random samples generated per object')
 
+    parser.add_argument('--sample_label', default = 0, type=int,
+                        help='sample label condition')
+
     args = parser.parse_args()
 
     cwd = os.getcwd()
@@ -304,6 +308,6 @@ if __name__ == '__main__':
     
     grabpose = Trainer(cfg=cfg, inference=True, logger=logger)
     
-    samples_results = inference(grabpose, args.object, args.n_object_samples, args.n_rand_samples_per_object, args.type_object_samples, save_dir)
+    samples_results = inference(grabpose, args.object, args.n_object_samples, args.n_rand_samples_per_object, args.type_object_samples, save_dir, cfg.sample_label)
     fitting_results = pose_opt(grabpose, samples_results, args.n_rand_samples_per_object, args.object, cfg.gender, save_dir, logger, grabpose.device)
 
