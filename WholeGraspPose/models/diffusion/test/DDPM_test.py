@@ -16,7 +16,7 @@ from utils.cfg_parser import Config
 T = 11
 
 B = 32
-D = 512
+D = 16
 
 x_0 = torch.randn((B, D)) * torch.randint(-3, 3, (B, D))
 t = torch.randint(0, T, (B,))
@@ -49,8 +49,8 @@ ddpm.learning_rate = 0.001
 #
 
 def test_train():
-    loss, _ = ddpm.p_losses(x_0, t, condition=torch.randn((B, D)))
-    loss_1, _ = ddpm.forward(x_0, condition=torch.randn((B, D)))
+    loss, _ = ddpm.p_losses(x_0, t, condition=torch.randn((B, 2)))
+    loss_1, _ = ddpm.forward(x_0, condition=torch.randn((B, 2)))
 
     optimimzer = torch.optim.AdamW(ddpm.parameters(), lr=0.01)
     diffusion_lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts( optimimzer,
@@ -62,12 +62,12 @@ def test_train():
     for _ in tqdm(range(100)):
         lr_seq.append(optimimzer.state_dict()['param_groups'][0]['lr'])
         optimimzer.zero_grad()
-        _loss, _ = ddpm.forward(x_0, condition=torch.randn((B, D)))
+        _loss, _ = ddpm.forward(x_0, condition=torch.randn((B, 2)))
         _loss.backward()
         optimimzer.step()
 
         diffusion_lr_scheduler.step()
-    loss_2, _ = ddpm.forward(x_0, condition=torch.randn((B, D)))
+    loss_2, _ = ddpm.forward(x_0, condition=torch.randn((B, 2)))
 
     plt.figure(0)
     plt.plot(list(range(len(lr_seq))), lr_seq)

@@ -281,15 +281,14 @@ class FullBodyGraspNet(nn.Module):
 
         return markers_xyz_pred.view(bs, -1, 3), markers_p_pred, contact_pred
 
-    def forward(self, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl, return_diffusion_input=False, **kwargs):
+    def forward(self, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl, label, return_diffusion_input=False, **kwargs):
         object_cond = self.pointnet(l0_xyz=verts_object, l0_points=feat_object)
         z = self.encode(object_cond, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl)
         z_s = z.rsample()
         ## Diffusion, Denosing
         _, _, _, _, l3_xyz, l3_f = object_cond
         _diffusion_params = {"batch_size": z_s.shape[0],
-                             "condition": None
-                             # "condition": self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)
+                             "condition": label
                              }
 
 
