@@ -17,10 +17,10 @@ mpl.use('macosx')
 # *
 ######################################################
 ### must has slash / at the end
-my_folder = "train/s9/"
+my_folder = "val/s9/"
 work_saved_in = "temp_result.json"
-img_size = (10, 6)
-
+img_size = (15, 9)
+CHECK_MODE = True
 ######################################################################################################
 # read file list
 files = [f for f in listdir(my_folder) if isfile(join(my_folder, f)) and "png" in f]
@@ -45,7 +45,7 @@ def save_work():
 # show img
 def record_label(event):
     sys.stdout.flush()
-    if event.key in ["0", "1", "2", "3"]:
+    if event.key in ["0", "1", "2", "3"] and not CHECK_MODE:
         global data, label_key_
         print(f'[label] {label_key_} - ', event.key)
 
@@ -58,23 +58,30 @@ def record_label(event):
         global continue_flag_
         continue_flag_ = False
         # sys.exit(0)
+    elif event.key == 'n':
+        plt.close()
     else:
         print('only 0,1,2,3 are valid!!!')
 
 continue_flag_ = True
-
+label_dict={0:"default",1:"Hand points up ",2:"hand points down",3:"hand points right ->" }
 for png_name in filenames:
     if not continue_flag_:
         print("Exiting. out")
         break
     label_key_ = f"{'_'.join(my_folder.split('/'))}{png_name}"
-    if label_key_ in data:
+    if label_key_ in data and not CHECK_MODE:
         continue
-    # print(f"showing {label_key_}")
+    print(f"showing {label_key_}")
     img = mpimg.imread(f'{my_folder}/{png_name}.png')
     fig = plt.figure(figsize=img_size)
-    imgplot = plt.imshow(img)
-    ## 强迫症 确认label key 没问题, 这里作用域不是那么正规
+    if CHECK_MODE:
+        plt.title(f"label:  {label_dict[data[label_key_]]}")
+
+        ## 强迫症 确认label key 没问题, 这里作用域不是那么正规
     label_key_ = f"{'_'.join(my_folder.split('/'))}{png_name}"
     fig.canvas.mpl_connect('key_press_event', record_label)
+    imgplot = plt.imshow(img)
     plt.show()
+
+save_work()

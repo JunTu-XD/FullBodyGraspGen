@@ -39,12 +39,12 @@ if __name__ == '__main__':
     cfg = Config(default_cfg_path=default_cfg_path, **{
         'debug': True,
         "dataset_dir": "./dataset/GraspPose",
-        'gender': "female"
+        'gender': "male"
     })
 
     cwd = os.getcwd()
 
-    load_data = LoadData(dataset_dir=cfg.dataset_dir, ds_name='test', gender=cfg.gender,
+    load_data = LoadData(dataset_dir=cfg.dataset_dir, ds_name='val', gender=cfg.gender,
                          motion_intent=cfg.motion_intent,
                          object_class=cfg.object_class, debug=cfg.debug)
 
