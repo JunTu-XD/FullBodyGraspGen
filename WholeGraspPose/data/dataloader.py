@@ -63,7 +63,7 @@ class LoadData(data.Dataset):
             subsets_dict = {'male':['s1', 's2', 's8', 's9', 's10'],
                            'female': ['s3', 's4', 's5', 's6', 's7']}
         else:
-            subsets_dict = {'male': ['s1'],
+            subsets_dict = {'male': ['s8'],
                             'female': ['s3']}
         subsets = subsets_dict[self.gender]
 
@@ -94,6 +94,7 @@ class LoadData(data.Dataset):
                     continue
             ## add label. extend label to all samples in this batch
             _label_extend_dim = data['verts_object'].shape[0]
+            #breakpoint()
             label_list.append(((torch.ones((_label_extend_dim,)) * label_dict[label_key]) == 1).long())
             verts_object_list.append(data['verts_object'])
             markers_list.append(data[self.data_type])
@@ -124,7 +125,7 @@ class LoadData(data.Dataset):
                 self.objs_frames[obj_name] = list(range(index, index+data['verts_object'].shape[0]))
             index += data['verts_object'].shape[0]
         ## change label to one-hot
-        output['label'] = torch.nn.functional.one_hot(torch.concatenate(label_list, dim=0).long(), 2)
+        output['label'] = torch.nn.functional.one_hot(torch.concatenate(label_list, dim=0).long(), 2).float()
         output['transf_transl'] = torch.tensor(np.concatenate(transf_transl_list, axis=0))
         output['markers'] = torch.tensor(np.concatenate(markers_list, axis=0))              # (B, 99, 3)
         output['verts_object'] = torch.tensor(np.concatenate(verts_object_list, axis=0))    # (B, 2048, 3)
