@@ -26,6 +26,7 @@ class Eps(nn.Module):
 
     def forward(self, x, t, condition):
         t_emb = self.time_embed(get_timestep_embedding(t, self.time_emb_dim))
+        
         _condition = self.cond_mapping(condition)
 
         return self.model(feature_vec=x, time=t_emb, condition= _condition)

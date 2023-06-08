@@ -57,7 +57,7 @@ if __name__ == '__main__':
         'best_net': None,
         'gender': args.gender,
         'exp_name': args.exp_name,
-        'use_pretrained': "pretrained_model/ddpm_male16_large.pt",
+        'use_pretrained': "pretrained_model/male_grasppose_model.pt",
         'train_1_stage': False,
         'train_2_stage': True,
         'debug': args.debug
