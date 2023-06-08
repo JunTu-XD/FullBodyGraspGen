@@ -234,7 +234,7 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 .idea/*
 
-dataset/
+dataset
 results/
 smplx/
 mano_v1_2/
