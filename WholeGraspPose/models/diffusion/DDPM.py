@@ -43,7 +43,7 @@ class DDPM(nn.Module):
     # classic DDPM with Gaussian diffusion
     def __init__(self,
                  model=None,
-                 timesteps=1000,
+                 timesteps=500,
                  beta_schedule="linear",
                  loss_type="l2",
                  ckpt_path=None,
@@ -51,7 +51,7 @@ class DDPM(nn.Module):
                  load_only_unet=False,
                  monitor="val/loss",
                  use_ema=False,
-                 x_dim=512,
+                 x_dim=16,
                  log_every_t=100,
                  clip_denoised=True,
                  linear_start=1e-4,
@@ -66,6 +66,8 @@ class DDPM(nn.Module):
                  use_positional_encodings=False,
                  learn_logvar=False,
                  logvar_init=0.,
+                 w=1.8,
+                 classifier_free_cond_dropout=0.2
                  ):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,6 +81,8 @@ class DDPM(nn.Module):
         self.x_dim = x_dim
         self.use_positional_encodings = use_positional_encodings
         self.model = Eps(D=self.x_dim)
+        self.w = w
+        self.classifier_free_cond_dropout = classifier_free_cond_dropout
         count_params(self.model, verbose=True)
         self.use_ema = use_ema
         if self.use_ema:
@@ -107,7 +111,6 @@ class DDPM(nn.Module):
         self.logvar = torch.full(fill_value=logvar_init, size=(self.num_timesteps,), device=self.device)
         if self.learn_logvar:
             self.logvar = nn.Parameter(self.logvar, requires_grad=True)
-        
 
     def register_schedule(self, given_betas=None, beta_schedule="linear", timesteps=1000,
                           linear_start=1e-4, linear_end=2e-2, cosine_s=8e-3):
@@ -136,7 +139,7 @@ class DDPM(nn.Module):
         self.register_buffer('alphas_cumprod_prev', to_torch(alphas_cumprod_prev))
 
         # calculations for diffusion q(x_t | x_{t-1}) and others
-        self.register_buffer('sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod)))
+        self.register_buffer('sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod)))  # alpha_bar
         self.register_buffer('sqrt_one_minus_alphas_cumprod', to_torch(np.sqrt(1. - alphas_cumprod)))
         self.register_buffer('log_one_minus_alphas_cumprod', to_torch(np.log(1. - alphas_cumprod)))
         self.register_buffer('sqrt_recip_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod)))
@@ -209,6 +212,7 @@ class DDPM(nn.Module):
         :param noise:
         :return: x_0
         """
+
         return (
                 extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t -
                 extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x_t.shape) * noise
@@ -232,17 +236,23 @@ class DDPM(nn.Module):
         """
         p(x_t-1 | x_t, x_0, t)
         where x_0 = reconstruct by (self.model out .e.g. noise, x_t. t)
+        :param condition:
         :param x:
         :param t:
         :param clip_denoised:
         :return:
         model_mean, posterior_variance, posterior_log_variance
         """
-        model_out = self.model(x=x, t=t, condition=condition)
+        pred_eps_cond = self.model(x=x, t=t, condition=condition)
+        _condition = torch.zeros_like(condition, device=self.device)
+        pred_eps_uncond = self.model(x=x, t=t, condition=_condition)
+        pred_eps = (1 + self.w) * pred_eps_cond - self.w * pred_eps_uncond
+
         if self.parameterization == "eps":
-            x_recon = self.predict_start_from_noise(x, t=t, noise=model_out)
+            x_recon = self.predict_start_from_noise(x, t=t, noise=pred_eps)
         elif self.parameterization == "x0":
-            x_recon = model_out
+            raise NotImplementedError()
+
         if clip_denoised:
             x_recon.clamp_(-1., 1.)
 
@@ -252,7 +262,8 @@ class DDPM(nn.Module):
     @torch.no_grad()
     def p_sample(self, x, t, condition=None, clip_denoised=True, repeat_noise=False):
         b, *_, device = *x.shape, x.device
-        model_mean, _, model_log_variance = self.p_mean_variance(x=x, t=t, condition=condition, clip_denoised=clip_denoised)
+        model_mean, model_variance, model_log_variance = self.p_mean_variance(x=x, t=t, condition=condition,
+                                                                              clip_denoised=clip_denoised)
         noise = noise_like(x.shape, device, repeat_noise)
         # no noise when t == 0
         nonzero_mask = (1 - (t == 0).float()).reshape(b, *((1,) * (len(x.shape) - 1)))
@@ -264,9 +275,10 @@ class DDPM(nn.Module):
         b = shape[0]
         x_t_minus_1 = torch.randn(shape, device=device)
         intermediates = [x_t_minus_1]
-        for i in tqdm(reversed(range(0, self.num_timesteps)), desc='Sampling t', total=self.num_timesteps):
-            x_t_minus_1 = self.p_sample(x_t_minus_1, torch.full((b,), i,  device=device, dtype=torch.long), condition=condition,
-                                clip_denoised=self.clip_denoised)
+        for i in reversed(range(0, self.num_timesteps)):
+            x_t_minus_1 = self.p_sample(x_t_minus_1, torch.full((b,), i, device=device, dtype=torch.long),
+                                        condition=condition,
+                                        clip_denoised=self.clip_denoised)
             if i % self.log_every_t == 0 or i == self.num_timesteps - 1:
                 intermediates.append(x_t_minus_1)
         ## now it's x_0
@@ -275,7 +287,7 @@ class DDPM(nn.Module):
         return x_t_minus_1
 
     @torch.no_grad()
-    def sample(self, batch_size=16, condition = None, return_intermediates=False, ddim=True, ddim_steps=200, **kwargs):
+    def sample(self, batch_size=16, condition=None, return_intermediates=False, ddim=True, ddim_steps=200, **kwargs):
         x_dim = self.x_dim
         if ddim:
             ddim_sampler = DDIMSampler(self)
@@ -287,7 +299,7 @@ class DDPM(nn.Module):
             return samples
         else:
             return self.p_sample_loop((batch_size, x_dim), condition,
-                                  return_intermediates=return_intermediates)
+                                      return_intermediates=return_intermediates)
 
     def q_sample(self, x_start, t, noise=None):
         """
@@ -327,13 +339,17 @@ class DDPM(nn.Module):
         """
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
+
+        B = x_noisy.shape[0]
+        condition[torch.rand(B) < self.classifier_free_cond_dropout] = 0
+
         model_output = self.model(x_noisy, t=t, condition=condition)
 
         loss_dict = {}
         prefix = 'diffusion_train' if self.training else 'diffusion_val'
 
         if self.parameterization == "x0":
-            target = x_start
+            raise NotImplementedError()
         elif self.parameterization == "eps":
             target = noise
         else:
@@ -380,7 +396,7 @@ class DDPM(nn.Module):
         x = x.to(memory_format=torch.contiguous_format).float()
         return x
 
-## todo remove or modify
+    ## todo remove or modify
     def shared_step(self, batch):
         """
         shared in training and validation step
@@ -443,7 +459,6 @@ class LatentDiffusion(DDPM):
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys)
             self.restarted_from_ckpt = True
-
 
     def make_cond_schedule(self, ):
         self.cond_ids = torch.full(size=(self.num_timesteps,), fill_value=self.num_timesteps - 1, dtype=torch.long)
@@ -574,8 +589,6 @@ class LatentDiffusion(DDPM):
             weighting = weighting * L_weighting
         return weighting
 
-
-
     @torch.no_grad()
     def get_input(self, batch, k, return_first_stage_outputs=False, force_c_encode=False,
                   cond_key=None, return_original_cond=False, bs=None):
@@ -632,7 +645,6 @@ class LatentDiffusion(DDPM):
     def decode_first_stage(self, z, predict_cids=False, force_not_quantize=False):
         z = 1. / self.scale_factor * z
         raise NotImplementedError()
-
 
     # same as above but without decorator
     def differentiable_decode_first_stage(self, z, predict_cids=False, force_not_quantize=False):
@@ -1094,4 +1106,3 @@ class DiffusionWrapper(nn.Module):
             raise NotImplementedError()
 
         return out
-

@@ -63,7 +63,7 @@ class LoadData(data.Dataset):
             subsets_dict = {'male':['s1', 's2', 's8', 's9', 's10'],
                            'female': ['s3', 's4', 's5', 's6', 's7']}
         else:
-            subsets_dict = {'male': ['s1'],
+            subsets_dict = {'male': ['s8'],
                             'female': ['s3']}
         subsets = subsets_dict[self.gender]
 
@@ -74,15 +74,28 @@ class LoadData(data.Dataset):
 
         index = 0
 
+        label_list = []
+        with open(f'{"/".join(path.split("/")[:-2])}/all_labels.json') as json_file:
+            label_dict = json.load(json_file)
+
         for rec in rec_list:
             data = np.load(rec, allow_pickle=True)
 
             ## select object
-            obj_name = rec.split('/')[-1].split('_')[0]
+            _temp_path_split = rec.split('/')
+            file_name = _temp_path_split[-1].replace('.npz', "")
+            folder_type = _temp_path_split[-3]
+            set_folder = _temp_path_split[-2]
+            label_key = f"{folder_type}_{set_folder}_{file_name}"
+
+            obj_name = _temp_path_split[-1].split('_')[0]
             if 'all' not in self.object_class:
                 if obj_name not in self.object_class:
                     continue
-
+            ## add label. extend label to all samples in this batch
+            _label_extend_dim = data['verts_object'].shape[0]
+            #breakpoint()
+            label_list.append(((torch.ones((_label_extend_dim,)) * label_dict[label_key]) == 2).long())
             verts_object_list.append(data['verts_object'])
             markers_list.append(data[self.data_type])
             transf_transl_list.append(data['transf_transl'])
@@ -111,6 +124,8 @@ class LoadData(data.Dataset):
             else:
                 self.objs_frames[obj_name] = list(range(index, index+data['verts_object'].shape[0]))
             index += data['verts_object'].shape[0]
+        ## change label to one-hot
+        output['label'] = torch.nn.functional.one_hot(torch.concatenate(label_list, dim=0).long(), 2).float()
         output['transf_transl'] = torch.tensor(np.concatenate(transf_transl_list, axis=0))
         output['markers'] = torch.tensor(np.concatenate(markers_list, axis=0))              # (B, 99, 3)
         output['verts_object'] = torch.tensor(np.concatenate(verts_object_list, axis=0))    # (B, 2048, 3)
@@ -142,6 +157,7 @@ class LoadData(data.Dataset):
         data_out['global_orient_object'] = self.ds['global_orient_object'][idx]
         data_out['transf_transl'] = self.ds['transf_transl'][idx]
         data_out['contacts_object'] = self.ds['contacts_object'][idx]
+        data_out['label'] = self.ds['label'][idx]
         if len(data_out['verts_object'].shape) == 2:
             data_out['feat_object'] = torch.cat([self.ds['normal_object'][idx], self.ds['rotmat'][idx, :6].view(1, 6).repeat(2048, 1)], -1)
         else:

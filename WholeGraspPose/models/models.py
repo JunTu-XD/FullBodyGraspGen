@@ -281,16 +281,18 @@ class FullBodyGraspNet(nn.Module):
 
         return markers_xyz_pred.view(bs, -1, 3), markers_p_pred, contact_pred
 
-    def forward(self, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl, return_diffusion_input=False, **kwargs):
+    def forward(self, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl, label, return_diffusion_input=False, **kwargs):
         object_cond = self.pointnet(l0_xyz=verts_object, l0_points=feat_object)
         z = self.encode(object_cond, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl)
         z_s = z.rsample()
         ## Diffusion, Denosing
         _, _, _, _, l3_xyz, l3_f = object_cond
-        _diffusion_params = {"batch_size": z_s.shape[0], "condition": self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)}
+        _diffusion_params = {"batch_size": z_s.shape[0],
+                             "condition": label
+                             }
 
 
-        z_d = self.diffusion.sample(ddim=True, **_diffusion_params)
+        z_d = self.diffusion.sample(ddim=False, **_diffusion_params)
         
         _diffusion_params["x"] = z_s     
         ##
@@ -302,7 +304,7 @@ class FullBodyGraspNet(nn.Module):
         return results
 
 
-    def sample(self, verts_object, feat_object, transf_transl, seed=None):
+    def sample(self, verts_object, feat_object, transf_transl, label, seed=None):
         bs = verts_object.shape[0]
         if seed is not None:
             np.random.seed(seed)
@@ -313,6 +315,6 @@ class FullBodyGraspNet(nn.Module):
         object_cond = self.pointnet(l0_xyz=verts_object, l0_points=feat_object)
         ## DDIM
         _, _, _, _, l3_xyz, l3_f = object_cond
-        Zgen = self.diffusion.sample(batch_size=bs, condition=self.diffusion.construct_condition(obj_feature=l3_f, obj_xyz=l3_xyz, transl=transf_transl)).type(dtype).to(device)
+        Zgen = self.diffusion.sample(ddim=False, batch_size=bs, condition=label).type(dtype).to(device)
         ##
         return self.decode(Zgen, object_cond, verts_object, feat_object, transf_transl)
