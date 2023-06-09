@@ -95,7 +95,7 @@ class LoadData(data.Dataset):
             ## add label. extend label to all samples in this batch
             _label_extend_dim = data['verts_object'].shape[0]
             #breakpoint()
-            label_list.append(((torch.ones((_label_extend_dim,)) * label_dict[label_key]) == 1).long())
+            label_list.append(((torch.ones((_label_extend_dim,)) * label_dict[label_key]) == 2).long())
             verts_object_list.append(data['verts_object'])
             markers_list.append(data[self.data_type])
             transf_transl_list.append(data['transf_transl'])

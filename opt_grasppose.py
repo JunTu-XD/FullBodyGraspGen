@@ -64,7 +64,7 @@ def load_object_data_uniform_sample(object_name, n_samples):
 
     """Prepare transl/global_orient data"""
     """Example: uniformly sample object height and orientation (can be customized)"""
-    transf_transl_list = torch.arange(n_samples)*1.0/(n_samples-1) + 0.5
+    transf_transl_list =  torch.arange(n_samples)*1.0/(n_samples-1) + 0.5
     global_orient_list = (2*np.pi)*torch.arange(n_samples)/n_samples
     n_samples = transf_transl_list.shape[0] * global_orient_list.shape[0]
     transl = torch.zeros(n_samples, 3)   # for object model which is centered at object
@@ -108,7 +108,7 @@ def inference(grabpose, obj, n_samples, n_rand_samples, object_type, save_dir, s
     markers_contact_gen = []
     for i in range(n_samples_total):
         sample_results = grabpose.full_grasp_net.sample(obj_data['verts_object'][None, i].repeat(n_rand_samples,1,1), obj_data['feat_object'][None, i].repeat(n_rand_samples,1,1), obj_data['transf_transl'][None, i].repeat(n_rand_samples,1),
-                                                        label=torch.nn.functional.one_hot(torch.tensor(sample_label), 2))
+                                                        label=torch.nn.functional.one_hot(torch.tensor(sample_label), 2)[None, : ].float())
         markers_gen.append((sample_results[0]+obj_data['transf_transl'][None, i]))
         markers_contact_gen.append(sample_results[1])
         object_contact_gen.append(sample_results[2])
@@ -294,7 +294,8 @@ if __name__ == '__main__':
         'c_weights_path': c_weights_path,
         'exp_name': args.exp_name,
         'gender': args.gender,
-        'best_net': best_net
+        'best_net': best_net,
+        'sample_label': args.sample_label
     }
 
     cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'

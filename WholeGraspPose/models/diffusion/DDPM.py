@@ -275,6 +275,7 @@ class DDPM(nn.Module):
         b = shape[0]
         x_t_minus_1 = torch.randn(shape, device=device)
         intermediates = [x_t_minus_1]
+    
         for i in reversed(range(0, self.num_timesteps)):
             x_t_minus_1 = self.p_sample(x_t_minus_1, torch.full((b,), i, device=device, dtype=torch.long),
                                         condition=condition,
