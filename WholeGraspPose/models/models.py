@@ -315,6 +315,6 @@ class FullBodyGraspNet(nn.Module):
         object_cond = self.pointnet(l0_xyz=verts_object, l0_points=feat_object)
         ## DDIM
         _, _, _, _, l3_xyz, l3_f = object_cond
-        Zgen = self.diffusion.sample(ddim=False, batch_size=bs, condition=label).type(dtype).to(device)
+        Zgen = self.diffusion.sample(ddim=False, batch_size=bs, condition=label.to(device)).type(dtype).to(device)
         ##
         return self.decode(Zgen, object_cond, verts_object, feat_object, transf_transl)
