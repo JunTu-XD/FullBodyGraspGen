@@ -6,7 +6,7 @@ from WholeGraspPose.models.diffusion.utils import get_timestep_embedding
 
 
 class Eps(nn.Module):
-    def __init__(self, D = 512, *args, **kwargs):
+    def __init__(self, D = 512, condition_dim = 23, *args, **kwargs):
         super(Eps, self).__init__(*args, **kwargs)
 
         self.time_emb_dim = D
@@ -18,9 +18,9 @@ class Eps(nn.Module):
             nn.Linear(self.time_emb_dim * 4 , self.time_emb_dim),
         )
         self.cond_mapping = nn.Sequential(
-            nn.Linear(2, int(D / 2)),
+            nn.Linear(condition_dim, 16),
             nn.SiLU(),
-            nn.Linear(int(D / 2), D),
+            nn.Linear(16, D),
         )
         self.model = TransformerDenoising(seq_len=16, vec_dim=D, drop_out_p=0.2, heads=16, depth=16)
 

@@ -108,7 +108,7 @@ def inference(grabpose, obj, n_samples, n_rand_samples, object_type, save_dir, s
     markers_contact_gen = []
     for i in range(n_samples_total):
         sample_results = grabpose.full_grasp_net.sample(obj_data['verts_object'][None, i].repeat(n_rand_samples,1,1), obj_data['feat_object'][None, i].repeat(n_rand_samples,1,1), obj_data['transf_transl'][None, i].repeat(n_rand_samples,1),
-                                                        label=torch.nn.functional.one_hot(torch.tensor(sample_label), 2)[None, : ].float())
+                                                        label=torch.nn.functional.one_hot(torch.tensor(sample_label), 23)[None, : ].float())
         markers_gen.append((sample_results[0]+obj_data['transf_transl'][None, i]))
         markers_contact_gen.append(sample_results[1])
         object_contact_gen.append(sample_results[2])

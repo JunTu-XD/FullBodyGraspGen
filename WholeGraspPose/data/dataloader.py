@@ -72,11 +72,27 @@ class LoadData(data.Dataset):
             subset_path = os.path.join(path, subset)
             rec_list += [os.path.join(subset_path, i) for i in os.listdir(subset_path)]
 
+        ## action label
+        action_set = set()
+        for rec in rec_list:
+            ## select object
+            _temp_path_split = rec.split('/')
+            file_name = _temp_path_split[-1].replace('.npz', "")
+            action_type = file_name.split("_")[1]
+            action_set.add(action_type)
+        label_distinct_size = len(action_set)
+        assert label_distinct_size == 22
+        # labels = sorted(list(action_set))
+        labels = ['call', 'chop', 'clean', 'drink', 'eat', 'fly', 'inspect', 'offhand', 'on', 'open', 'pass', 'peel',
+                  'play', 'pour', 'screw', 'see', 'set', 'shake', 'stamp', 'staple', 'use', 'wear']
+        label_dict = {}
+        for _i, lbl in enumerate(labels):
+            label_dict[lbl] = _i
+        # with open(f'{"/".join(path.split("/")[:-1])}/all_labels.json') as json_file:
+        #     label_dict = json.load(json_file)
         index = 0
-
         label_list = []
-        with open(f'{"/".join(path.split("/")[:-2])}/all_labels.json') as json_file:
-            label_dict = json.load(json_file)
+        obj_type_list = []
 
         for rec in rec_list:
             data = np.load(rec, allow_pickle=True)
@@ -95,7 +111,12 @@ class LoadData(data.Dataset):
             ## add label. extend label to all samples in this batch
             _label_extend_dim = data['verts_object'].shape[0]
             #breakpoint()
-            label_list.append(((torch.ones((_label_extend_dim,)) * label_dict[label_key]) == 2).long())
+            if label_key in label_dict:
+                label_list.append((torch.ones((_label_extend_dim,)) * label_dict[label_key]).long())
+            else:
+                ## not appear in training set.
+                label_list.append((torch.ones((_label_extend_dim,)) * label_distinct_size).long())
+
             verts_object_list.append(data['verts_object'])
             markers_list.append(data[self.data_type])
             transf_transl_list.append(data['transf_transl'])
@@ -125,7 +146,7 @@ class LoadData(data.Dataset):
                 self.objs_frames[obj_name] = list(range(index, index+data['verts_object'].shape[0]))
             index += data['verts_object'].shape[0]
         ## change label to one-hot
-        output['label'] = torch.nn.functional.one_hot(torch.concatenate(label_list, dim=0).long(), 2).float()
+        output['label'] = torch.nn.functional.one_hot(torch.concatenate(label_list, dim=0).long(), label_distinct_size+1).float()
         output['transf_transl'] = torch.tensor(np.concatenate(transf_transl_list, axis=0))
         output['markers'] = torch.tensor(np.concatenate(markers_list, axis=0))              # (B, 99, 3)
         output['verts_object'] = torch.tensor(np.concatenate(verts_object_list, axis=0))    # (B, 2048, 3)
