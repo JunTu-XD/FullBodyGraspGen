@@ -17,10 +17,10 @@ mpl.use('macosx')
 # *
 ######################################################
 ### must has slash / at the end
-my_folder = "val/s9/"
-work_saved_in = "temp_result.json"
+my_folder = "val/s1/"
+work_saved_in = "all_labels.json"
 img_size = (15, 9)
-CHECK_MODE = True
+CHECK_MODE = False
 ######################################################################################################
 # read file list
 files = [f for f in listdir(my_folder) if isfile(join(my_folder, f)) and "png" in f]
