@@ -18,9 +18,9 @@ class Eps(nn.Module):
             nn.Linear(self.time_emb_dim * 4 , self.time_emb_dim),
         )
         self.cond_mapping = nn.Sequential(
-            nn.Linear(condition_dim, 16),
+            nn.Linear(condition_dim, int((condition_dim + D)/2)),
             nn.SiLU(),
-            nn.Linear(16, D),
+            nn.Linear(int((condition_dim + D)/2), D),
         )
         self.model = TransformerDenoising(seq_len=16, vec_dim=D, drop_out_p=0.2, heads=16, depth=16)
 
