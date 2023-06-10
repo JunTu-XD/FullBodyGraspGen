@@ -4,7 +4,6 @@ import pickle
 import sys
 
 from WholeGraspPose.models.diffusion.DDPM import DDPM
-from mapping import MapperNet
 
 sys.path.append('.')
 sys.path.append('..')
