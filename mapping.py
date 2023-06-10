@@ -28,7 +28,7 @@ import torch.utils.data as td
 import time
 from torch.utils.tensorboard import SummaryWriter
 
-from trainer import Trainer
+from WholeGraspPose.trainer import Trainer
 from utils.cfg_parser import Config
 
 
