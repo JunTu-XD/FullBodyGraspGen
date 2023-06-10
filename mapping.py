@@ -281,7 +281,7 @@ if __name__ == '__main__':
 
     cwd = os.getcwd()
 
-    best_net = os.path.join(cwd, args.pose_ckpt_path)
+    # best_net = os.path.join(cwd, args.pose_ckpt_path)
    
 
     cfg = {
@@ -293,9 +293,9 @@ if __name__ == '__main__':
         'base_dir': cwd,
         'work_dir': work_dir,
         'base_lr': args.lr,
-        'best_net': best_net,
         'gender': args.gender,
         'exp_name': args.exp_name,
+        'debug':False
     }
     cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'
     cfg = Config(default_cfg_path=cfg_path, **cfg)
