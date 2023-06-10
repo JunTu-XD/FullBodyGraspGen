@@ -1,3 +1,6 @@
+import os
+import pickle
+
 import sys
 
 from WholeGraspPose.models.diffusion.DDPM import DDPM
@@ -11,7 +14,7 @@ from torch import nn
 from torch.nn import functional as F
 from WholeGraspPose.models.pointnet import (PointNetFeaturePropagation,
                                             PointNetSetAbstraction)
-
+import pickle as pkl
 
 class ResBlock(nn.Module):
     def __init__(self,
@@ -265,8 +268,9 @@ class FullBodyGraspNet(nn.Module):
         # fusion
         X = torch.cat([marker_feat, contact_feat], dim=-1)
         X = self.enc_fusion(X, True)
-
-        return torch.distributions.normal.Normal(self.enc_mu(X), F.softplus(self.enc_var(X)))
+        mu = self.enc_mu(X)
+        var = F.softplus(self.enc_var(X))
+        return torch.distributions.normal.Normal(mu, var), mu, var
 
 
     def decode(self, Z, object_cond, verts_object, feat_object, transf_transl):
@@ -283,25 +287,29 @@ class FullBodyGraspNet(nn.Module):
 
     def forward(self, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl, label, return_diffusion_input=False, **kwargs):
         object_cond = self.pointnet(l0_xyz=verts_object, l0_points=feat_object)
-        z = self.encode(object_cond, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl)
-        z_s = z.rsample()
-        ## Diffusion, Denosing
-        _, _, _, _, l3_xyz, l3_f = object_cond
-        _diffusion_params = {"batch_size": z_s.shape[0],
-                             "condition": label
-                             }
-
-
-        z_d = self.diffusion.sample(ddim=False, **_diffusion_params)
-        
-        _diffusion_params["x"] = z_s     
-        ##
-        markers_xyz_pred, markers_p_pred, object_p_pred = self.decode(z_d, object_cond, verts_object, feat_object, transf_transl)
-
-        results = {'markers': markers_xyz_pred, 'contacts_markers': markers_p_pred, 'contacts_object': object_p_pred, 'object_code': object_cond[-1]}
-        if return_diffusion_input:
-            return results, _diffusion_params
-        return results
+        z, mu, var = self.encode(object_cond, verts_object, feat_object, contacts_object, markers, contacts_markers, transf_transl)
+        # z_s = z.rsample()
+        # ## Diffusion, Denosing
+        # _, _, _, _, l3_xyz, l3_f = object_cond
+        # _diffusion_params = {"batch_size": z_s.shape[0],
+        #                      "condition": label
+        #                      }
+        #
+        #
+        #
+        #
+        #
+        #
+        # z_d = self.diffusion.sample(ddim=False, **_diffusion_params)
+        #
+        # _diffusion_params["x"] = z_s
+        # ##
+        # markers_xyz_pred, markers_p_pred, object_p_pred = self.decode(z_d, object_cond, verts_object, feat_object, transf_transl)
+        #
+        # results = {'markers': markers_xyz_pred, 'contacts_markers': markers_p_pred, 'contacts_object': object_p_pred, 'object_code': object_cond[-1]}
+        # if return_diffusion_input:
+        #     return results, _diffusion_params
+        return mu, var, label
 
 
     def sample(self, verts_object, feat_object, transf_transl, label, seed=None):
