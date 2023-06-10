@@ -50,7 +50,7 @@ ddpm = DDPM(
     parameterization='eps',
     # linear_start = 1e-3,
     # linear_end = 5e-2
-    # clip_denoised=True,
+    clip_denoised=False,
 )
 ddpm.learning_rate = 0.001
 
@@ -64,8 +64,8 @@ ddpm.learning_rate = 0.001
 #     assert x_t.shape == x_0.shape
 #
 
-pos_miu = torch.ones((D,))  # torch.distributions.Normal(torch.zeros((D,))+0.4 , torch.ones((D,))*0.2 ).rsample()
-neg_miu = torch.ones((D,))  # torch.distributions.Normal(torch.zeros((D,))-0.4 , torch.ones((D,))*0.2 ).rsample()
+pos_miu = torch.ones((D,)) * 10  # torch.distributions.Normal(torch.zeros((D,))+0.4 , torch.ones((D,))*0.2 ).rsample()
+neg_miu = torch.ones((D,))  * 10 # torch.distributions.Normal(torch.zeros((D,))-0.4 , torch.ones((D,))*0.2 ).rsample()
 sigma = 0.2
 data_gen = lambda miu: torch.distributions.Normal(miu, sigma).sample((int(B/2), ))
 
@@ -359,14 +359,14 @@ if __name__ == "__main__":
     # one_d_diff()
     # plot_ddpm_alpha_beta()
     # tb = get_timestep_embedding(torch.tensor([1,100,1000]), 16)
-    # test_train()
+    test_train()
 
     # plt.plot([1,2,3])
     # plt.ylabel("L2 distance between sampled x_t mean \nand original distribution mean.")
     # plt.show()
-    cls = {0:[], 1:[]}
-    data_dict = torch.load("saga_male_latent_label.pt", map_location=device)
-    for i in range(data_dict['mu'].shape[0]):
-        mu = data_dict['mu'][i]
-        var = data_dict['var'][i]
-        label = data_dict['label'][i]
+    # cls = {0:[], 1:[]}
+    # data_dict = torch.load("saga_male_latent_label.pt", map_location=device)
+    # for i in range(data_dict['mu'].shape[0]):
+    #     mu = data_dict['mu'][i]
+    #     var = data_dict['var'][i]
+    #     label = data_dict['label'][i]

@@ -11,7 +11,7 @@ class Eps(nn.Module):
 
         self.time_emb_dim = D
         # self.model = UNet1D(drop_out_p=0)
-        # self.model = FlatPush(depth=3, drop_out_p=0, input_dim=16, out_dim=16)
+        self.model = FlatPush(depth=3, drop_out_p=0, input_dim=16, out_dim=16)
         self.time_embed = nn.Sequential(
             nn.Linear(self.time_emb_dim , self.time_emb_dim * 2),
             nn.SiLU(),
@@ -22,7 +22,7 @@ class Eps(nn.Module):
         #     nn.SiLU(),
         #     nn.Linear(int(D / 2), D),
         # )
-        self.model = TransformerDenoising(seq_len=4, vec_dim=D, drop_out_p=0.2, heads=4, depth=3)
+        # self.model = TransformerDenoising(seq_len=4, vec_dim=D, drop_out_p=0.2, heads=4, depth=3)
 
     def forward(self, x, t, condition):
         t_emb = self.time_embed(get_timestep_embedding(t, self.time_emb_dim))
