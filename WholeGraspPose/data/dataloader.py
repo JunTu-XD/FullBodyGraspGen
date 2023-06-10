@@ -102,9 +102,7 @@ class LoadData(data.Dataset):
             ## select object
             _temp_path_split = rec.split('/')
             file_name = _temp_path_split[-1].replace('.npz', "")
-            folder_type = _temp_path_split[-3]
-            set_folder = _temp_path_split[-2]
-            label_key = f"{folder_type}_{set_folder}_{file_name}"
+            label_key = file_name.split("_")[1]
 
             obj_name = _temp_path_split[-1].split('_')[0]
             if 'all' not in self.object_class:
