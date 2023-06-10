@@ -43,7 +43,7 @@ class DDPM(nn.Module):
     # classic DDPM with Gaussian diffusion
     def __init__(self,
                  model=None,
-                 timesteps=500,
+                 timesteps=1000,
                  beta_schedule="linear",
                  loss_type="l2",
                  ckpt_path=None,
@@ -66,8 +66,8 @@ class DDPM(nn.Module):
                  use_positional_encodings=False,
                  learn_logvar=False,
                  logvar_init=0.,
-                 w=1.8,
-                 classifier_free_cond_dropout=0.2
+                 w=3.8,
+                 classifier_free_cond_dropout=0.1
                  ):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -164,7 +164,7 @@ class DDPM(nn.Module):
             lvlb_weights = 0.5 * np.sqrt(torch.Tensor(alphas_cumprod)) / (2. * 1 - torch.Tensor(alphas_cumprod))
         else:
             raise NotImplementedError("mu not supported")
-        # TODO how to choose this term
+
         lvlb_weights[0] = lvlb_weights[1]
         self.register_buffer('lvlb_weights', lvlb_weights, persistent=False)
         assert not torch.isnan(self.lvlb_weights).all()
@@ -246,7 +246,7 @@ class DDPM(nn.Module):
         pred_eps_cond = self.model(x=x, t=t, condition=condition)
         _condition = torch.zeros_like(condition, device=self.device)
         pred_eps_uncond = self.model(x=x, t=t, condition=_condition)
-        pred_eps = (1 + self.w) * pred_eps_cond - self.w * pred_eps_uncond
+        pred_eps = pred_eps_cond #  (1 + self.w) * pred_eps_cond - self.w * pred_eps_uncond
 
         if self.parameterization == "eps":
             x_recon = self.predict_start_from_noise(x, t=t, noise=pred_eps)
@@ -304,7 +304,7 @@ class DDPM(nn.Module):
     def q_sample(self, x_start, t, noise=None):
         """
         draw sample from p(x_t|x_0)
-        :param x_start:
+        :param x_start:Ω
         :param t:
         :return: mean + noise~N(0,1) * var
         sqrt(alpha_bar) * x_0 + noise * sqrt(1/alpha_bar -1 )
@@ -341,7 +341,7 @@ class DDPM(nn.Module):
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
 
         B = x_noisy.shape[0]
-        condition[torch.rand(B) < self.classifier_free_cond_dropout] = 0
+        # condition[torch.rand(B) < self.classifier_free_cond_dropout] = 0
 
         model_output = self.model(x_noisy, t=t, condition=condition)
 

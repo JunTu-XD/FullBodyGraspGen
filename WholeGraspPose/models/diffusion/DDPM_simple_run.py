@@ -48,7 +48,9 @@ ddpm = DDPM(
     x_dim=D,
     log_every_t=1,
     parameterization='eps',
-    clip_denoised=True,
+    # linear_start = 1e-3,
+    # linear_end = 5e-2
+    # clip_denoised=True,
 )
 ddpm.learning_rate = 0.001
 
@@ -62,9 +64,10 @@ ddpm.learning_rate = 0.001
 #     assert x_t.shape == x_0.shape
 #
 
-miu = torch.distributions.Normal(torch.zeros((D,))+0.1 , torch.ones((D,))).rsample()
-sigma = 1
-data_gen = lambda _=None: torch.distributions.Normal(0, sigma).sample((B,D))
+pos_miu = torch.ones((D,))  # torch.distributions.Normal(torch.zeros((D,))+0.4 , torch.ones((D,))*0.2 ).rsample()
+neg_miu = torch.ones((D,))  # torch.distributions.Normal(torch.zeros((D,))-0.4 , torch.ones((D,))*0.2 ).rsample()
+sigma = 0.2
+data_gen = lambda miu: torch.distributions.Normal(miu, sigma).sample((int(B/2), ))
 
 recon_loss = torch.nn.MSELoss()
 
@@ -94,14 +97,14 @@ def plot_ddpm_alpha_beta():
     plt.show()
 
 def test_train():
-    data_dict = torch.load("./dataset/male_data_dict.pt", map_location=device)
-    names = list(data_dict.keys())
-    train_set = td.TensorDataset(data_dict[names[0]], data_dict[names[1]])
-    eval_set = td.TensorDataset(data_dict[names[2]], data_dict[names[3]])
+    # data_dict = torch.load("saga_male_latent_label.pt", map_location=device)
+    # names = list(data_dict.keys())
+    # train_set = td.TensorDataset(data_dict[names[0]], data_dict[names[1]])
+    # eval_set = td.TensorDataset(data_dict[names[2]], data_dict[names[3]])
 
     batch_s = 128
-    saga_train_loader = td.DataLoader(train_set, shuffle=True, drop_last=True, batch_size=batch_s)
-    saga_eval_loader = td.DataLoader(eval_set, shuffle=False, drop_last=False, batch_size=batch_s)
+    # saga_train_loader = td.DataLoader(train_set, shuffle=True, drop_last=True, batch_size=batch_s)
+    # saga_eval_loader = td.DataLoader(eval_set, shuffle=False, drop_last=False, batch_size=batch_s)
 
     ddim = DDIMSampler(ddpm)
 
@@ -116,26 +119,31 @@ def test_train():
     recon_seq = []
     ddim_recon_seq = []
     diff_loss = []
-    for epoch in range(1):
-        for _i, (_, label) in enumerate(tqdm(saga_train_loader)):
+    for _i in tqdm(range(10000)):
             optimimzer.zero_grad()
-            t_label = label[:, :16]
-            t_mu = label[:, 16:32]
-            t_var = label[:, 32:48]
-            # x_0 = data_gen()
-            # x_0 = t_label
-            x_0 = torch.distributions.Normal(t_mu, t_var).sample()
-            cond = torch.zeros((x_0.shape[0], 2))
-            cond[torch.abs(t_mu[:, 2]) > 0.003, 0] = 1
-            cond[torch.abs(t_mu[:, 2]) <= 0.003, 1] = 1
 
-            _loss, _ = ddpm(x_0, condition=cond)
+            x_1 = data_gen(pos_miu)
+            x_0 = data_gen(neg_miu)
+
+            label_0 = torch.zeros((int(B/2), 2))
+            label_0[:, 0] = 1
+            label_1 = torch.zeros((int(B/2), 2))
+            label_1[:, 1] = 1
+            x = torch.cat([x_0,x_1], dim=0)
+            label = torch.cat([label_0, label_1], dim=0)
+            perm = torch.randperm(x.shape[0])
+            x = x[perm, :]
+            label = label[perm, :]
+            # x_0 = t_label
+            # x_0 = torch.distributions.Normal(t_mu, t_var).sample()
+
+            _loss, _ = ddpm(x, condition=label)
             clip_grad_norm_(ddpm.model.parameters(), 1.0)
             _loss.backward()
             optimimzer.step()
             diff_loss.append(_loss.detach())
 
-            writer.add_scalar("loss", _loss.detach(), epoch * len(saga_train_loader) + _i)
+            writer.add_scalar("loss", _loss.detach(), _i)
             # ema(ddpm, ema_model, 0.7)
             if _i % 500 == 0:
                 with torch.no_grad():
@@ -154,55 +162,32 @@ def test_train():
             diffusion_lr_scheduler.step()
 
     _num_draw = 4
-    sample_num = 128
+    sample_num = 512
     cond = torch.zeros((sample_num, 2))
     cond[:, 0] += 1
     sample_x0, seq = ddpm.sample(batch_size=sample_num, ddim=False, return_intermediates=True,
                                  condition=cond)
-    centers_seq = []
+    x0_cond_0_min_dist= torch.mean(torch.cdist(sample_x0, neg_miu[None, :]))
+    x0_cond_1_min_dist = torch.mean(torch.cdist(sample_x0, pos_miu[None, :]))
 
-    # eval_data = data_dict[names[3]][:, 0:16]
-    eval_miu = data_dict[names[3]][:, 16:32]
-    eval_cond = torch.zeros((eval_miu.shape[0], 2))
-    eval_cond[torch.abs(eval_miu[:, 2]) > 0.003, 0] = 1
-    eval_cond[torch.abs(eval_miu[:, 2]) <= 0.003, 1] = 1
-
-    # eval_var = data_dict[names[3]][:, 32:]
-    # eval_miu = miu[None, :]
-    cond_0_miu = eval_miu[eval_cond[:, 0] == 1]
-    cond_1_miu = eval_miu[eval_cond[:, 1] == 1]
-
-    cond_0_min_indices = torch.argmin(torch.cdist(sample_x0, cond_0_miu), dim=1)
-    cond_1_min_indices = torch.argmin(torch.cdist(sample_x0, cond_1_miu), dim=1)
-    dists = []
-    # min_d =  torch.min(torch.cdist(sample_x0, data_dict[names[3]][:, 0:16]), dim=1)
-    # for _ in range(_num_draw):
-    #     centers_seq.append([])
-    for _i, _s in enumerate(reversed(seq)):
-            min_dist_0 = (_s - cond_0_miu[cond_0_min_indices, :]).norm(dim=1)
-            min_dist_1 = (_s - cond_1_miu[cond_1_min_indices, :]).norm(dim=1)
-            writer.add_scalar("dist_diff_0and1",  torch.abs(min_dist_1.mean()- min_dist_0.mean()), _i)
-            writer.add_scalar("min_dist", torch.min(min_dist_1.mean(), min_dist_0.mean()), _i)
-        #     # centers_seq[_i].append(min_dist)
-        #     centers_seq[_i].append(torch.mean(_s, dim=0)[_i])
-
-    # plt.title("diffusion loss")
-    # plt.plot(diff_loss)
-    # plt.show()
-
-    # for _i in range(len(centers_seq)):
-        # plt.plot(list(range(T+1)), centers_seq[_i])
-
-    # plt.plot(dists)
-    # plt.hlines(y=(data_gen()).norm(dim=1).mean(), xmin=0, xmax=T, linestyles="--", label='mean l2 dist between samples from original distribution and its mean')
-    # plt.grid()
-    # plt.ylabel("l2 distance to mean of x_0")
-    # plt.xlabel("t")
-    # plt.title('256d denoising with same model structure and depth')
-    # plt.legend()
-    # plt.show()
-
+    cond = torch.zeros((sample_num, 2))
+    cond[:, 1] += 1
+    # sample_x1, seq = ddpm.sample(batch_size=sample_num, ddim=False, return_intermediates=True,
+    #                              condition=cond)
+    #
+    # x1_cond_0_min_dist = torch.mean(torch.cdist(sample_x1, neg_miu[None, :]))
+    # x1_cond_1_min_dist = torch.mean(torch.cdist(sample_x1, pos_miu[None, :]))
     writer.close()
+    dists = []
+
+    # for _i, _s in enumerate(reversed(seq)):
+            # min_dist_0 = (_s - ).norm(dim=1)
+            # min_dist_1 = (_s - ).norm(dim=1)
+            # writer.add_scalar("dist_diff_0and1",  torch.abs(min_dist_1.mean()- min_dist_0.mean()), _i)
+            # writer.add_scalar("min_dist", torch.min(min_dist_1.mean(), min_dist_0.mean()), _i)
+
+
+
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -374,8 +359,14 @@ if __name__ == "__main__":
     # one_d_diff()
     # plot_ddpm_alpha_beta()
     # tb = get_timestep_embedding(torch.tensor([1,100,1000]), 16)
-    test_train()
+    # test_train()
 
     # plt.plot([1,2,3])
     # plt.ylabel("L2 distance between sampled x_t mean \nand original distribution mean.")
     # plt.show()
+    cls = {0:[], 1:[]}
+    data_dict = torch.load("saga_male_latent_label.pt", map_location=device)
+    for i in range(data_dict['mu'].shape[0]):
+        mu = data_dict['mu'][i]
+        var = data_dict['var'][i]
+        label = data_dict['label'][i]
