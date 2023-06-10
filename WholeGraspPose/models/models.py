@@ -215,7 +215,7 @@ class FullBodyGraspNet(nn.Module):
         self.enc_var = nn.Linear(cfg.n_neurons, cfg.latentD)
 
         ####
-        self.diffusion = DDPM(learn_logvar=cfg.learn_logvar)
+        self.diffusion = DDPM(learn_logvar=cfg.learn_logvar, x_dim=cfg.latentD)
         self.enc_dec_modules = [self.marker_net, self.contact_net, self.pointnet, self.enc_fusion, self.enc_mu, self.enc_var]
         self.learn_logvar = cfg.learn_logvar
 

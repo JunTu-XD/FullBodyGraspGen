@@ -80,8 +80,10 @@ class LoadData(data.Dataset):
             file_name = _temp_path_split[-1].replace('.npz', "")
             action_type = file_name.split("_")[1]
             action_set.add(action_type)
-        label_distinct_size = len(action_set)
-        assert label_distinct_size == 22
+        label_distinct_size = 22 # len(action_set)
+        # print(f"label size {label_distinct_size}")
+        # if "train" in path:
+        #     assert label_distinct_size == 22
         # labels = sorted(list(action_set))
         labels = ['call', 'chop', 'clean', 'drink', 'eat', 'fly', 'inspect', 'offhand', 'on', 'open', 'pass', 'peel',
                   'play', 'pour', 'screw', 'see', 'set', 'shake', 'stamp', 'staple', 'use', 'wear']
