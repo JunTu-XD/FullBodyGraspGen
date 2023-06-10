@@ -28,7 +28,8 @@ import torch.utils.data as td
 import time
 from torch.utils.tensorboard import SummaryWriter
 
-from WholeGraspPose.trainer import Trainer
+# from WholeGraspPose.trainer import Trainer
+from data.dataloader import LoadData
 from utils.cfg_parser import Config
 
 
@@ -277,7 +278,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
    
-    work_dir = os.path.join(args.work_dir, args.exp_name)
+    # work_dir = os.path.join(args.work_dir, args.exp_name)
 
     cwd = os.getcwd()
 
@@ -291,7 +292,7 @@ if __name__ == '__main__':
         'kl_coef': args.kl_coef,
         'dataset_dir': args.data_path,
         'base_dir': cwd,
-        'work_dir': work_dir,
+        'work_dir': "./",
         'base_lr': args.lr,
         'gender': args.gender,
         'exp_name': args.exp_name,
@@ -300,11 +301,12 @@ if __name__ == '__main__':
     cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'
     cfg = Config(default_cfg_path=cfg_path, **cfg)
 
+    ds_name = 'train'
+    ds_train = LoadData(dataset_dir=cfg.dataset_dir, ds_name=ds_name, gender=cfg.gender,
+                        motion_intent=cfg.motion_intent, object_class=cfg.object_class, debug=cfg.debug)
+    # grabpose = Trainer(cfg=cfg, inference = False)
 
-
-    grabpose = Trainer(cfg=cfg, inference = False)
-
-    save_dataloader(grabpose)
+    # save_dataloader(grabpose)
     # torch.cuda.empty_cache()
     # mapper = Mapper()
     # train_mapper(mapper,'./female_data_dict.pt')
