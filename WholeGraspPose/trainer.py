@@ -367,7 +367,7 @@ class Trainer:
 
         early_stopping_net = EarlyStopping(patience=8, trace_func=self.logger)
         
-        self.evaluate()
+
 
         for epoch_num in tqdm(range(self.start_epoch, n_epochs + 1)):
             self.logger('--- starting Epoch # %03d' % epoch_num)
