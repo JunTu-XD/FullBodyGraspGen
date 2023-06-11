@@ -30,4 +30,4 @@ class Eps(nn.Module):
         
         _condition = self.cond_mapping(condition)
 
-        return self.model(feature_vec=x, time=t_emb, condition= _condition)
+        return self.model(feature_vec=x, time_emb=t_emb, condition= _condition)

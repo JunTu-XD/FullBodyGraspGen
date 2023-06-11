@@ -311,7 +311,7 @@ class SeqTransformerDenoising(nn.Module):
 
 
     def forward(self, feature_vec, time_emb, condition=None): # expect all three inputs to be of size [bs, 512]
-        feat_with_time = torch.cat( [feature_vec[None, :], time[None, :]]) # [bs,512]
+        feat_with_time = torch.cat( [feature_vec[None, :], time_emb[None, :]]) # [bs,512]
         if condition != None:
             if not self.warned:
                 print(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
