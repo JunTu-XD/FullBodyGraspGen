@@ -1,7 +1,8 @@
 import torch
 from torch import nn
 
-from WholeGraspPose.models.diffusion.DenoisingModels import UNet1D, FlatPush, TransformerDenoising
+from WholeGraspPose.models.diffusion.DenoisingModels import UNet1D, FlatPush, TransformerDenoising, \
+    SeqTransformerDenoising
 from WholeGraspPose.models.diffusion.utils import get_timestep_embedding
 
 
@@ -15,14 +16,14 @@ class Eps(nn.Module):
         self.time_embed = nn.Sequential(
             nn.Linear(self.time_emb_dim , self.time_emb_dim * 4),
             nn.SiLU(),
-            nn.Linear(self.time_emb_dim * 4 , self.time_emb_dim),
+            nn.Linear(self.time_emb_dim * 4, self.time_emb_dim),
         )
         self.cond_mapping = nn.Sequential(
             nn.Linear(condition_dim, int((condition_dim + D)/2)),
             nn.SiLU(),
             nn.Linear(int((condition_dim + D)/2), D),
         )
-        self.model = TransformerDenoising(seq_len=16, vec_dim=D, drop_out_p=0.2, heads=16, depth=16)
+        self.model = SeqTransformerDenoising(vec_dim=D, drop_out_p=0.2, heads=4, depth=6)
 
     def forward(self, x, t, condition):
         t_emb = self.time_embed(get_timestep_embedding(t, self.time_emb_dim))
