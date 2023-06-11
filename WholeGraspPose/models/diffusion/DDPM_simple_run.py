@@ -359,14 +359,20 @@ if __name__ == "__main__":
     # one_d_diff()
     # plot_ddpm_alpha_beta()
     # tb = get_timestep_embedding(torch.tensor([1,100,1000]), 16)
-    test_train()
+    # test_train()
 
     # plt.plot([1,2,3])
     # plt.ylabel("L2 distance between sampled x_t mean \nand original distribution mean.")
     # plt.show()
     # cls = {0:[], 1:[]}
-    # data_dict = torch.load("saga_male_latent_label.pt", map_location=device)
-    # for i in range(data_dict['mu'].shape[0]):
-    #     mu = data_dict['mu'][i]
-    #     var = data_dict['var'][i]
-    #     label = data_dict['label'][i]
+    data_dict = torch.load("saga_male_latent_label.pt", map_location=device)
+    label_inds = torch.argmax(data_dict['label'], dim=1)
+    labels_mu = {i:[] for i in range(22)}
+    labels_var = {i:[] for i in range(22)}
+
+    for i in range(data_dict['mu'].shape[0]):
+        mu = data_dict['mu'][i]
+        var = data_dict['var'][i]
+        labels_mu[int(label_inds[i])].append(mu)
+        labels_var[int(label_inds[i])].append(var)
+

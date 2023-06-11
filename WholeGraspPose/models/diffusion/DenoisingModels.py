@@ -132,9 +132,9 @@ class FlatPush(nn.Module):
         super(FlatPush, self).__init__()
         self.warned = False
         # feature fusion
-        self.fuse_in = nn.Linear(input_dim, input_dim)
-        self.fuse_mid = nn.Linear(input_dim,input_dim)
-        self.fuse_out = nn.Linear(input_dim, out_dim)
+        # self.fuse_in = nn.Linear(input_dim, input_dim)
+        # self.fuse_mid = nn.Linear(input_dim,input_dim)
+        # self.fuse_out = nn.Linear(input_dim, out_dim)
 
         # The FlatPush MLP
         layers = []
@@ -159,27 +159,27 @@ class FlatPush(nn.Module):
 
     def forward(self, feature_vec, time, condition=None): # expect all three inputs to be of size [bs, 512]
         feat_with_time = feature_vec + time # [bs,512]
-        if condition != None:
-            if not self.warned:
-                print(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
-                               + Style.RESET_ALL)
-                self.warned = True
-            X = torch.cat((feat_with_time,condition), dim=-1) # [bs,1024]
-            # feature fusion
-            X = self.fuse_in(X)
-            X = self.bn_1024(X)
-            X = self.gelu(X)
-
-            X = self.fuse_mid(X)
-            X = self.bn_1024(X)
-            X = self.gelu(X)
-            X = self.drop_out(X)
-
-            X = self.fuse_out(X)
-            X = self.bn_512(X)
-            X = self.gelu(X)
-        else:
-            X = feat_with_time
+        # if condition != None:
+        #     if not self.warned:
+        #         print(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
+        #                        + Style.RESET_ALL)
+        #         self.warned = True
+        #     X = torch.cat((feat_with_time,condition), dim=-1) # [bs,1024]
+        #     # feature fusion
+        #     X = self.fuse_in(X)
+        #     X = self.bn_1024(X)
+        #     X = self.gelu(X)
+        #
+        #     X = self.fuse_mid(X)
+        #     X = self.bn_1024(X)
+        #     X = self.gelu(X)
+        #     X = self.drop_out(X)
+        #
+        #     X = self.fuse_out(X)
+        #     X = self.bn_512(X)
+        #     X = self.gelu(X)
+        # else:
+        X = feat_with_time
         
         X = self.model(X)
 
@@ -289,6 +289,85 @@ class TransformerDenoising(nn.Module):
         X = torch.sum(X, dim=0)
 
         return X
+
+class SeqTransformer(nn.Module):
+    def __init__(self, seq_len, vec_dim, drop_out_p, heads, depth):
+        '''
+        - seq_len: The lenth of the sequence of vectors that the Transformer Block will process
+        - vec_dim: The dimension of the sequence of vectors that the Transformer Block will process (should be 512, but it's not constrained to be 512)
+        - drop_out_p: drop out probability
+        - heads: number of heads
+        - depth: Number of transformer blocks stacked
+        '''
+        super(SeqTransformer, self).__init__()
+        self.warned = False
+        self.vec_dim = vec_dim
+        # feature fusion
+        self.fuse_in = nn.Linear(vec_dim * 2, vec_dim * 2)
+        self.fuse_mid = nn.Linear(vec_dim * 2, vec_dim * 2)
+        self.fuse_out = nn.Linear(vec_dim * 2, vec_dim)
+
+        # map to seq of length seq_len
+        self.mapper = nn.Sequential(
+            nn.Linear(vec_dim, vec_dim * 2),
+            nn.GELU(),
+            nn.Linear(vec_dim * 2, vec_dim * seq_len)
+        )
+
+        # Attention
+        attention_blocks = []
+        for i in range(depth):
+            attention_blocks.append(
+                TransformerBlock(input_dim=vec_dim, hidden_dim=vec_dim * 2, num_heads=heads, dropout_rate=drop_out_p))
+        self.model = nn.Sequential(*attention_blocks)
+
+        # LayerNorms, Regularization, GELU
+        self.ln_1024 = nn.LayerNorm(vec_dim * 2)
+        self.ln_512 = nn.LayerNorm(vec_dim)
+        self.drop_out = nn.Dropout(drop_out_p)
+        self.gelu = nn.GELU()
+
+        self.feature_proj = nn.Sequential(*[
+            nn.Linear(vec_dim, vec_dim),
+            nn.SiLU()
+        ])
+
+    def forward(self, feature_vec, time, condition=None):  # expect all three inputs to be of size [bs, 512]
+        # feat_with_time = feature_vec + time  # [bs,512]
+        # if condition != None:
+        #     if not self.warned:
+        #         print(
+        #             Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
+        #             + Style.RESET_ALL)
+        #         self.warned = True
+        #     X = torch.cat((feat_with_time, condition), dim=-1)  # [bs,1024]
+        #     # feature fusion
+        #     X = self.fuse_in(X)
+        #     X = self.ln_1024(X)
+        #     X = self.gelu(X)
+        #
+        #     X = self.fuse_mid(X)
+        #     X = self.ln_1024(X)
+        #     X = self.gelu(X)
+        #     X = self.drop_out(X)
+        #
+        #     X = self.fuse_out(X)
+        #     X = self.ln_512(X)
+        #     X = self.gelu(X)
+        # else:
+        #     X = feat_with_time  # [bs,512]
+
+        # X = self.mapper(X)  # [bs, 512*L]
+        # X = einops.rearrange(X, 'b (d l) -> l b d', d=self.vec_dim, l=self.seq_len)  # [L, bs, 512]
+        feature_vec = self.feature_proj(feature_vec)
+        X = torch.cat([feature_vec[None, :], time[None, :]], dim=0)
+        X = self.model(X)  # [L, bs, 512]
+
+        X = torch.sum(X, dim=0)
+
+        return X
+
+
 
 if __name__ == '__main__':
     model = TransformerDenoising(seq_len=8, vec_dim=512, drop_out_p=0.3, heads=8, depth=3)

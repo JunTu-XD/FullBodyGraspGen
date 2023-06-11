@@ -15,7 +15,7 @@ def space_timesteps(num_timesteps, section_counts):
     are strided to be 15 timesteps, and the final 100 are strided to be 20.
 
     If the stride is a string starting with "ddim", then the fixed striding
-    from the DDIM paper is used, and only one section is allowed.
+    from the DDIM paper is used, anpace_timesteps(steps, timestep_respacing)d only one section is allowed.
 
     :param num_timesteps: the number of diffusion steps in the original
                           process to divide up.
