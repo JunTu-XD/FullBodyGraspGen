@@ -19,11 +19,11 @@ class Eps(nn.Module):
             nn.Linear(self.time_emb_dim * 4, self.time_emb_dim),
         )
         self.cond_mapping = nn.Sequential(
-            nn.Linear(condition_dim, int((condition_dim + D)/2)),
+            nn.Linear(condition_dim, D),
             nn.SiLU(),
-            nn.Linear(int((condition_dim + D)/2), D),
+            # nn.Linear(int((condition_dim + D)/2), D),
         )
-        self.model = SeqTransformerDenoising(vec_dim=D, drop_out_p=0.2, heads=4, depth=6)
+        self.model = SeqTransformerDenoising(vec_dim=D, drop_out_p=0.2, heads=4, depth=16)
 
     def forward(self, x, t, condition):
         t_emb = self.time_embed(get_timestep_embedding(t, self.time_emb_dim))
