@@ -55,7 +55,7 @@ class DiffusionTrainer:
         samples = []
         mean_samples = []
         for label in range(22):
-            cond_ = torch.nn.functional.one_hot(torch.ones((sample_batch, )).long() * label, 23).float()
+            cond_ = torch.nn.functional.one_hot(torch.ones((sample_batch, ),device=self.device).long() * label, 23).float()
             samples_ = self.diffusion.sample(batch_size=sample_batch, ddim=False, condition= cond_)
             samples.append(samples_)
             mean_samples.append(samples_.mean(dim=0)[None, :])
@@ -102,12 +102,12 @@ class DiffusionTrainer:
         return internal_dist_mean, external_dist
 
 if __name__=="__main__":
-    exp_name = "test2"
+    exp_name = "test3"
 
     cfg = Config(**{
         "exp_name": exp_name,
         "dataset_path":'saga_male_latent_256_label.pt',
-        "batch_size": 64,
+        "batch_size": 1024,
         "x_dim":256,
         "trained_model":None,
         "epoch":100,

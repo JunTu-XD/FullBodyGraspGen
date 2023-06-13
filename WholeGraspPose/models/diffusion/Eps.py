@@ -25,6 +25,7 @@ class Eps(nn.Module):
         )
         self.model = SeqTransformerDenoising(vec_dim=D, drop_out_p=0.2, heads=2, depth=2)
 
+
     def forward(self, x, t, condition):
         t_emb = self.time_embed(get_timestep_embedding(t, self.time_emb_dim))
         
