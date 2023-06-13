@@ -31,10 +31,6 @@ class DiffusionTrainer:
         data_dict = torch.load(self.cfg.dataset_path, map_location=self.device)
         return TensorDataset(*[data_dict['mu'], data_dict['var'], data_dict['label']])
 
-    def load_model(self):
-        if self.cfg.trained_model is not None:
-            self.model.load_state_dict(cfg.trained_model)
-
     def train_ddpm(self):
         for e in range(self.cfg.epoch):
             for _i, (_mu, _var, _label) in enumerate(tqdm(self.train_loader)):
@@ -57,7 +53,7 @@ class DiffusionTrainer:
 
         samples = []
         mean_samples = []
-        for label in range(2):
+        for label in range(3):
             cond_ = torch.nn.functional.one_hot(torch.ones((sample_batch, )).long() * label, 23).float()
             samples_ = self.diffusion.sample(batch_size=sample_batch, ddim=False, condition= cond_)
             samples.append(samples_)
@@ -66,10 +62,10 @@ class DiffusionTrainer:
         internal_dist = []
         for samples_l in samples:
             dist = torch.cdist(samples_l, samples_l, p = p)
-            mean_internal_dist = torch.sum(dist) / (sample_batch**2 - samples)
+            mean_internal_dist = torch.sum(dist) / (sample_batch**2 - sample_batch)
             internal_dist.append(mean_internal_dist)
         mean_samples = torch.cat(mean_samples)
-        external_dist = torch.cdist(mean_samples)
+        external_dist = torch.cdist(mean_samples, mean_samples, p=2)
         return
 
     def save(self):
@@ -99,7 +95,7 @@ if __name__=="__main__":
         "dataset_path":'dataset/saga_male_latent_label.pt',
         "batch_size": 64,
         "x_dim":16,
-        "trained_model":None,
+
         "epoch":2,
         "save_folder":f"logs/{exp_name}/",
         "lr":1e-4,
