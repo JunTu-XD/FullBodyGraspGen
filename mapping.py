@@ -28,8 +28,8 @@ import torch.utils.data as td
 import time
 from torch.utils.tensorboard import SummaryWriter
 
-# from WholeGraspPose.trainer import Trainer
-from data.dataloader import LoadData
+from WholeGraspPose.trainer import Trainer
+# from data.dataloader import LoadData
 from utils.cfg_parser import Config
 
 
