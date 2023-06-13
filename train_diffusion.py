@@ -108,6 +108,5 @@ if __name__=="__main__":
 
     trainer = DiffusionTrainer(cfg)
     trainer.train_ddpm()
-    trainer.dist_metrics()
-    # trainer.save()
-    trainer.original_data()
+    trainer.dist_metrics(save_internal_dist_path="256d_internal_dist", save_external_dist_path="256d_external_dist")
+
