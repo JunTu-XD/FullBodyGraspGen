@@ -265,6 +265,10 @@ if __name__ == '__main__':
     parser.add_argument('--pose_ckpt_path', default = None, type=str,
                         help='checkpoint path')
 
+    parser.add_argument('--diffusion_model_path', default = None, type=str,
+                        help='diffusion path')
+
+
     parser.add_argument('--n_object_samples', default = 5, type=int,
                         help='The number of object samples of this object')
 
@@ -282,7 +286,7 @@ if __name__ == '__main__':
     cwd = os.getcwd()
 
     best_net = os.path.join(cwd, args.pose_ckpt_path)
-
+    diffusion_model_path = os.path.join(cwd, args.diffusion_model_path)
     vpe_path  = '/configs/verts_per_edge.npy'
     c_weights_path = cwd + '/WholeGraspPose/configs/rhand_weight.npy'
     work_dir = cwd + '/results/{}/GraspPose'.format(args.exp_name)
@@ -295,6 +299,7 @@ if __name__ == '__main__':
         'exp_name': args.exp_name,
         'gender': args.gender,
         'best_net': best_net,
+        'trained_diffusion': diffusion_model_path,
         'sample_label': args.sample_label
     }
 

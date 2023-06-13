@@ -11,4 +11,4 @@
 
 module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy
 source /cluster/scratch/juntuj/venvs/gt/bin/activate
-python train_grasppose.py --data_path ./dataset/GraspPose --gender male --exp_name male16_23label
+python train_grasppose.py --data_path ./dataset/GraspPose --gender male --exp_name male16_23label_seq_model
