@@ -48,12 +48,12 @@ class DiffusionTrainer:
     def load_model(self):
         self.model.load_state_dict(torch.load(self.cfg.trained_diffusion, map_location=self.device), strict=False)
 
-    def dist_metrics(self, p=2):
+    def dist_metrics(self, p=2, save_internal_dist_path ="16d_internal_dist", save_external_dist_path="16d_external_dist"):
         sample_batch = 512
 
         samples = []
         mean_samples = []
-        for label in range(3):
+        for label in range(22):
             cond_ = torch.nn.functional.one_hot(torch.ones((sample_batch, )).long() * label, 23).float()
             samples_ = self.diffusion.sample(batch_size=sample_batch, ddim=False, condition= cond_)
             samples.append(samples_)
@@ -66,7 +66,9 @@ class DiffusionTrainer:
             internal_dist.append(mean_internal_dist)
         mean_samples = torch.cat(mean_samples)
         external_dist = torch.cdist(mean_samples, mean_samples, p=2)
-        return
+        torch.save(internal_dist, f"{self.cfg.save_folder}/{save_internal_dist_path}.pt")
+        torch.save(external_dist, f"{self.cfg.save_folder}/{save_external_dist_path}.pt")
+        return internal_dist, external_dist
 
     def save(self):
         torch.save(self.model.state_dict(), f"{self.cfg.save_folder}/diffusion_model.pt")
@@ -95,7 +97,6 @@ if __name__=="__main__":
         "dataset_path":'dataset/saga_male_latent_label.pt',
         "batch_size": 64,
         "x_dim":16,
-
         "epoch":2,
         "save_folder":f"logs/{exp_name}/",
         "lr":1e-4,
