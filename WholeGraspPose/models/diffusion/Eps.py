@@ -23,7 +23,6 @@ class Eps(nn.Module):
             nn.SiLU(),
             nn.Linear(int((condition_dim + D)/2), D),
         )
-
         self.model = SeqTransformerDenoising(vec_dim=D, drop_out_p=0.2, heads=2, depth=2)
 
 
