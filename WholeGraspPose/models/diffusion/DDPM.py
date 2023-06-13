@@ -66,7 +66,7 @@ class DDPM(nn.Module):
                  use_positional_encodings=False,
                  learn_logvar=False,
                  logvar_init=0.,
-                 w=4,
+                 w=8,
                  classifier_free_cond_dropout=0.2
                  ):
         super().__init__()
