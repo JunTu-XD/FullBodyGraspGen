@@ -2,8 +2,8 @@ import torch
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
-from models.diffusion.DDPM import DDPM
-from models.diffusion.Eps import Eps
+from WholeGraspPose.models.diffusion.DDPM import DDPM
+from WholeGraspPose.models.diffusion.Eps import Eps
 from utils.cfg_parser import Config
 
 from torch.utils.tensorboard import SummaryWriter
@@ -18,10 +18,10 @@ class DiffusionTrainer:
                                                     drop_last=True,
                                                     batch_size=cfg.batch_size)
 
-        self.model = Eps(D=cfg.x_dim)
+        self.model = Eps(D=cfg.x_dim).to(self.device)
         if self.cfg.trained_diffusion is not None:
             self.load_model()
-        self.diffusion = DDPM()
+        self.diffusion = DDPM().to(self.device)
         self.diffusion.model = self.model
 
         self.optimizer = torch.optim.AdamW(self.diffusion.model.parameters(), lr=cfg.lr)
@@ -36,8 +36,8 @@ class DiffusionTrainer:
             self.model.load_state_dict(cfg.trained_model)
 
     def train_ddpm(self):
-        for e in range(self.cfg.epoch):
-            for _i, (_mu, _var, _label) in enumerate(tqdm(self.train_loader)):
+        for e in tqdm(range(self.cfg.epoch),desc="Epoch"):
+            for _i, (_mu, _var, _label) in enumerate(tqdm(self.train_loader,desc="train loader")):
                 self.optimizer.zero_grad()
 
                 x_0 = torch.distributions.Normal(_mu, _var).rsample()
@@ -48,6 +48,7 @@ class DiffusionTrainer:
                 self.writer.flush()
 
                 self.optimizer.step()
+            self.save("epoch_" + str(e))
 
     def load_model(self):
         self.model.load_state_dict(torch.load(self.cfg.trained_diffusion, map_location=self.device), strict=False)
@@ -72,8 +73,8 @@ class DiffusionTrainer:
         external_dist = torch.cdist(mean_samples)
         return
 
-    def save(self):
-        torch.save(self.model.state_dict(), f"{self.cfg.save_folder}/diffusion_model.pt")
+    def save(self, ckpt_name):
+        torch.save(self.model.state_dict(), "{}/{}.pt".format(self.cfg.save_folder, ckpt_name))
 
     def original_data(self):
         data_dict = torch.load("dataset/saga_male_latent_label.pt", map_location=self.device)
@@ -92,22 +93,23 @@ class DiffusionTrainer:
             mius.append(torch.cat(m).mean(dim=0))
         return
 if __name__=="__main__":
-    exp_name = "test"
+    exp_name = "test2"
 
     cfg = Config(**{
         "exp_name": exp_name,
-        "dataset_path":'dataset/saga_male_latent_label.pt',
+        "dataset_path":'saga_male_latent_256_label.pt',
         "batch_size": 64,
-        "x_dim":16,
+        "x_dim":256,
         "trained_model":None,
-        "epoch":2,
+        "epoch":100,
         "save_folder":f"logs/{exp_name}/",
-        "lr":1e-4,
-        "trained_diffusion": f"logs/{exp_name}/diffusion_model.pt",
+        "lr":5e-5,
+        "trained_diffusion": None,
+        "cuda_id":0,
     })
 
     trainer = DiffusionTrainer(cfg)
-    # trainer.train_ddpm()
+    trainer.train_ddpm()
     trainer.dist_metrics()
     # trainer.save()
     trainer.original_data()
