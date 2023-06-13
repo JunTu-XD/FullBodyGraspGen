@@ -21,7 +21,7 @@ class DiffusionTrainer:
         self.model = Eps(D=cfg.x_dim).to(self.device)
         if self.cfg.trained_diffusion is not None:
             self.load_model()
-        self.diffusion = DDPM().to(self.device)
+        self.diffusion = DDPM(x_dim=cfg.x_dim).to(self.device)
         self.diffusion.model = self.model
 
         self.optimizer = torch.optim.AdamW(self.diffusion.model.parameters(), lr=cfg.lr)
@@ -74,22 +74,33 @@ class DiffusionTrainer:
     def save(self, ckpt_name):
         torch.save(self.model.state_dict(), "{}/{}.pt".format(self.cfg.save_folder, ckpt_name))
 
-    def original_data(self):
-        data_dict = torch.load("dataset/saga_male_latent_label.pt", map_location=self.device)
+    def original_data_dist(self, p=2):
+        data_dict = torch.load(self.cfg.dataset_path, map_location=self.device)
         label_inds = torch.argmax(data_dict['label'], dim=1)
         labels_mu = {i:[] for i in range(22)}
         labels_var = {i:[] for i in range(22)}
 
-        mius = [[] for i in range(22)]
+
         for i in range(data_dict['mu'].shape[0]):
             mu = data_dict['mu'][i]
             var = data_dict['var'][i]
-            labels_mu[int(label_inds[i])].append(mu)
-            labels_var[int(label_inds[i])].append(var)
-        mius_tensor = []
+            labels_mu[int(label_inds[i])].append(mu[None,:])
+            labels_var[int(label_inds[i])].append(var[None,:])
+
+        internal_center = []
+        internal_dist_mean = []
+
         for i, m in labels_mu.items():
-            mius.append(torch.cat(m).mean(dim=0))
-        return
+            m_tensor = torch.cat(m)
+            internal_center.append(m_tensor.mean(dim=0)[None,:])
+            internal_dist_mean.append(torch.sum(torch.cdist(m_tensor, m_tensor, p=p)) / (m_tensor.shape[0]*(m_tensor.shape[0]-1)))
+
+        internal_center = torch.cat(internal_center)
+        external_dist = torch.cdist(internal_center, internal_center, p=p)
+        torch.save(internal_dist_mean, f"{self.cfg.save_folder}/orignal_internal_dist_mean.pt") # (22,)
+        torch.save(external_dist, f"{self.cfg.save_folder}/orignal_external_dist_mean.pt") # (22,22)
+        return internal_dist_mean, external_dist
+
 if __name__=="__main__":
     exp_name = "test2"
 
@@ -110,3 +121,4 @@ if __name__=="__main__":
     trainer.train_ddpm()
     trainer.dist_metrics(save_internal_dist_path="256d_internal_dist", save_external_dist_path="256d_external_dist")
 
+    trainer.original_data_dist()
