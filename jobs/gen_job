@@ -18,5 +18,7 @@
 
 module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy
 source /cluster/scratch/juntuj/venvs/gt/bin/activate
+# python opt_grasppose.py --exp_name male_16_seq_pass_cam --gender male --object camera --n_object_samples 10 --pose_ckpt_path pretrained_model/male16_23lbl_seqmodel.pt --sample_label 10
 python opt_grasppose.py --exp_name male_16_seq_eat_cam --gender male --pose_ckpt_path pretrained_model/male16_23lbl_seqmodel.pt --object camera --n_object_samples 10 --sample_label 4
 python opt_grasppose.py --exp_name male_16_seq_call_cam --gender male --pose_ckpt_path pretrained_model/male16_23lbl_seqmodel.pt --object camera --n_object_samples 10 --sample_label 0
+
