@@ -301,12 +301,12 @@ if __name__ == '__main__':
     cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'
     cfg = Config(default_cfg_path=cfg_path, **cfg)
 
-    ds_name = 'train'
-    ds_train = LoadData(dataset_dir=cfg.dataset_dir, ds_name=ds_name, gender=cfg.gender,
-                        motion_intent=cfg.motion_intent, object_class=cfg.object_class, debug=cfg.debug)
-    # grabpose = Trainer(cfg=cfg, inference = False)
+#     ds_name = 'train'
+#     ds_train = LoadData(dataset_dir=cfg.dataset_dir, ds_name=ds_name, gender=cfg.gender,
+#                         motion_intent=cfg.motion_intent, object_class=cfg.object_class, debug=cfg.debug)
+    grabpose = Trainer(cfg=cfg, inference = False)
 
-    # save_dataloader(grabpose)
+    save_dataloader(grabpose)
     # torch.cuda.empty_cache()
     # mapper = Mapper()
     # train_mapper(mapper,'./female_data_dict.pt')
