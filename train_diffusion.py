@@ -34,7 +34,7 @@ class DiffusionTrainer:
             self.model.load_state_dict(cfg.trained_model)
 
     def train_ddpm(self):
-        for e in range(1):
+        for e in range(self.cfg.epoch):
             for _i, (_mu, _var, _label) in enumerate(tqdm(self.train_loader)):
                 self.optimizer.zero_grad()
 
@@ -47,14 +47,17 @@ class DiffusionTrainer:
 
                 self.optimizer.step()
     def val(self):
-        sample_batch = 256
-        cond_1 = torch.nn.functional.one_hot(torch.ones((sample_batch, )).long() * 2, 23).float()
+        sample_batch = 512
+        cond_1 = torch.nn.functional.one_hot(torch.ones((sample_batch, )).long() * 10, 23).float()
         samples_1 = self.diffusion.sample(batch_size=sample_batch, ddim=False, condition= cond_1)
 
-        cond_0 = torch.nn.functional.one_hot(torch.ones((sample_batch, )).long() * 5, 23).float()
+        cond_0 = torch.nn.functional.one_hot(torch.ones((sample_batch, )).long() * 0, 23).float()
         samples_0 = self.diffusion.sample(batch_size=sample_batch, ddim=False, condition=cond_0)
-
+        print(torch.norm(torch.mean(samples_0, dim =0) - torch.mean(samples_1, dim=0)))
         return
+
+    def save(self):
+        torch.save(self.model.state_dict(), f"{self.cfg.save_folder}/diffusion_model.pt")
 
     def train_imporved_ddpm(self):
         pass
@@ -68,7 +71,7 @@ if __name__=="__main__":
         "batch_size": 64,
         "x_dim":16,
         "trained_model":None,
-        "epoch":100,
+        "epoch":2,
         "save_folder":f"logs/{exp_name}/",
         "lr":1e-4
     })
@@ -76,4 +79,5 @@ if __name__=="__main__":
     trainer = DiffusionTrainer(cfg)
     trainer.train_ddpm()
     trainer.val()
+    trainer.save()
 
