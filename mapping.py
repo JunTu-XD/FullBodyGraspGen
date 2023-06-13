@@ -14,7 +14,7 @@ import torch
 #from utils.utils import makelogger, makepath
 # from WholeGraspPose.models.fittingop import FittingOP
 # from WholeGraspPose.models.objectmodel import ObjectModel
-# from WholeGraspPose.trainer import Trainer
+from WholeGraspPose.trainer import Trainer
 
 
 # from pdb import set_trace as debug
