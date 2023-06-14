@@ -66,12 +66,12 @@ def load_object_data_uniform_sample(object_name, n_samples):
     """Example: uniformly sample object height and orientation (can be customized)"""
     transf_transl_list =  torch.arange(n_samples)*1.0/(n_samples-1) + 0.5
     global_orient_list = (2*np.pi)*torch.arange(n_samples)/n_samples
-    n_samples = transf_transl_list.shape[0] * global_orient_list.shape[0]
+    # n_samples = transf_transl_list.shape[0] * global_orient_list.shape[0]
     transl = torch.zeros(n_samples, 3)   # for object model which is centered at object
     transf_transl = torch.zeros(n_samples, 3)
-    transf_transl[:, -1] = transf_transl_list.repeat_interleave(global_orient_list.shape[0])
+    transf_transl[:, -1] = transf_transl_list # .repeat_interleave(global_orient_list.shape[0])
     global_orient = torch.zeros(n_samples, 3)
-    global_orient[:, -1] = global_orient_list.repeat(transf_transl_list.shape[0])  # [6+6+6.....]
+    global_orient[:, -1] = global_orient_list # .repeat(transf_transl_list.shape[0])  # [6+6+6.....]
     global_orient_rotmat = batch_rodrigues(global_orient.view(-1, 3)).to(grabpose.device)   # [N, 3, 3]
 
     object_output = obj_model(global_orient_rotmat, transl.to(grabpose.device), v_temp.to(grabpose.device), normal_temp.to(grabpose.device), rotmat=True)
