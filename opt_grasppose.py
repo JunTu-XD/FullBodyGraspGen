@@ -278,10 +278,21 @@ if __name__ == '__main__':
     parser.add_argument('--n_rand_samples_per_object', default = 1, type=int,
                         help='The number of whole-body poses random samples generated per object')
 
-    parser.add_argument('--sample_label', default = 0, type=int,
+    parser.add_argument('--label_name', default = None, type=str,
                         help='sample label condition')
+    
+    parser.add_argument('--latentD', default = 16, type=int,
+                        help='Latent dimension')
 
     args = parser.parse_args()
+
+    labels = ['call', 'chop', 'clean', 'drink', 'eat', 'fly', 'inspect', 'offhand', 'on', 'open', 'pass', 'peel',
+              'play', 'pour', 'screw', 'see', 'set', 'shake', 'stamp', 'staple', 'use', 'wear']
+    label_dict = dict()
+    for i, l in enumerate(labels):
+        label_dict[l] = i
+    
+    label_idx = label_dict[args.label_name]
 
     cwd = os.getcwd()
 
@@ -300,15 +311,18 @@ if __name__ == '__main__':
         'gender': args.gender,
         'best_net': best_net,
         'trained_diffusion': diffusion_model_path,
-        'sample_label': args.sample_label
+        'sample_label': label_idx,
+        'latentD': args.latentD
     }
 
     cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'
     cfg = Config(default_cfg_path=cfg_path, **config)
 
-    save_dir = os.path.join(work_dir, args.object)
+    save_dir = os.path.join(work_dir, args.object, args.label_name)
+    
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)        
+    
 
     logger = makelogger(makepath(os.path.join(save_dir, '%s.log' % (args.object)), isfile=True)).info
     
