@@ -248,3 +248,4 @@ logs/
 *.out
 *.err
 save_pics*
+cached_saga_encoder_output
