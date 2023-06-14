@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
+import os
 
 from WholeGraspPose.models.diffusion.DDPM import DDPM
 from WholeGraspPose.models.diffusion.Eps import Eps
@@ -19,6 +20,7 @@ class DiffusionTrainer:
                                                     batch_size=cfg.batch_size)
 
         self.model = Eps(D=cfg.x_dim).to(self.device)
+        self.save_every = cfg.save_every
         if self.cfg.trained_diffusion is not None:
             self.load_model()
         self.diffusion = DDPM(x_dim=cfg.x_dim).to(self.device)
@@ -44,8 +46,11 @@ class DiffusionTrainer:
                 self.writer.flush()
 
                 self.optimizer.step()
-            self.save("epoch_" + str(e))
-
+            if e % self.save_every == 0:
+                self.save("epoch_" + str(e))
+            elif e == self.cfg.epoch - 1:
+                self.save("last")
+                
     def load_model(self):
         self.model.load_state_dict(torch.load(self.cfg.trained_diffusion, map_location=self.device), strict=False)
 
@@ -72,7 +77,7 @@ class DiffusionTrainer:
         return internal_dist, external_dist
 
     def save(self, ckpt_name):
-        torch.save(self.model.state_dict(), "{}/{}.pt".format(self.cfg.save_folder, ckpt_name))
+        torch.save(self.model.state_dict(), "{}/ckpt/{}.pt".format(self.cfg.save_folder, ckpt_name))
 
     def original_data_dist(self, p=2):
         data_dict = torch.load(self.cfg.dataset_path, map_location=self.device)
@@ -102,23 +107,25 @@ class DiffusionTrainer:
         return internal_dist_mean, external_dist
 
 if __name__=="__main__":
-    exp_name = "test3"
+    exp_name = "test10" # Modify this
 
     cfg = Config(**{
         "exp_name": exp_name,
-        "dataset_path":'saga_male_latent_256_label.pt',
-        "batch_size": 1024,
-        "x_dim":256,
+        "dataset_path":'cached_saga_encoder_output/saga_male_latent_128_label.pt', # modify this
+        "batch_size": 8192,
+        "x_dim":128, # Modify this
         "trained_model":None,
         "epoch":100,
         "save_folder":f"logs/{exp_name}/",
         "lr":5e-5,
         "trained_diffusion": None,
-        "cuda_id":0,
+        "cuda_id":0, # cpu is also supported, comment this if you are using cpu
+        "save_every":999,
     })
 
     trainer = DiffusionTrainer(cfg)
+    os.makedirs(cfg.save_folder + '/ckpt') # Techinially if you forget to modify exp_name, the program should crash here to remind you
     trainer.train_ddpm()
-    trainer.dist_metrics(save_internal_dist_path="256d_internal_dist", save_external_dist_path="256d_external_dist")
+    trainer.dist_metrics(save_internal_dist_path="{}d_internal_dist".format(cfg.x_dim), save_external_dist_path="{}d_external_dist".format(cfg.x_dim))
 
     trainer.original_data_dist()
