@@ -10,7 +10,7 @@ import os
 import open3d as o3d
 
 from visualization.visualization_utils import *
-from scipy.spatial.distance import pdist
+from scipy.spatial.distance import pdist, cdist
 
 def set_torch(deter=False):
     '''
@@ -167,15 +167,32 @@ def diversity_eval(marker_samples):
     """
     if marker_samples.shape[0] == 1:
         return 0.0
-    # samples_array = []
-    # for i in range(n_samples):
-    #     samples_array.append(np.asarray(mesh_list[i].vertices).reshape(-1))
-    # samples_array = np.stack(samples_array) # (n_samples, n_verts * 3)
-    # dist = pdist(samples_array) # len(dist) = n_samples * (n_samples-1) / 2
-    # diversity = np.mean(dist) # convert cm to m
     dist = pdist(marker_samples.reshape(marker_samples.shape[0], -1))
     diversity = dist.mean().item()
     return diversity
+
+def evaluate_consistency(markers_results, n_rand_samples_per_object):
+    """ Compute the consistency score on generated markers
+    """
+    body_markers = markers_results['markers_gen']
+    n_samples = body_markers.shape[0] # 10
+    # compute the apd, need to group all samples from one object scene
+    apd = []
+    for i in range(0, n_samples, n_rand_samples_per_object):
+        apd.append(diversity_eval(body_markers[i:i+n_rand_samples_per_object]))
+    return np.mean(apd)
+
+def evaluate_cross_label_dist(markers_results_i, markers_results_j, n_rand_samples_per_object):
+    """ Compute the cross label average pairwise distance on generated markers
+    """
+    n_samples = markers_results_i.shape[0]
+    markers_results_i = markers_results_i.reshape(n_samples, -1)
+    markers_results_j = markers_results_j.reshape(n_samples, -1)
+    cross_label_dist = []
+    for i in range(0, n_samples, n_rand_samples_per_object):
+        dist_i = cdist(markers_results_i[i:i+n_rand_samples_per_object], markers_results_j[i:i+n_rand_samples_per_object])
+        cross_label_dist.append(dist_i.mean().item())
+    return np.mean(cross_label_dist)
 
 def evaluate(body_model_path, contact_meshes_path, load_path, gender, object_name, n_rand_samples_per_object):
     """ Compute apd, iterpenatration volume & depth, contact ratio for the given fitting_results file
@@ -215,13 +232,13 @@ def evaluate(body_model_path, contact_meshes_path, load_path, gender, object_nam
         inter_depth.append(depth_i)
         contact.append(contact_i)
     
-    # print("=================================================")
-    # print("Evaluation results for {} and {} with {} samples:".format(gender, object_name, n_samples))
-    # print("AVG_APD: {}".format(np.mean(apd)))
-    # print("AVG_inter_vol: {}".format(np.mean(inter_vol)))
-    # print("AVG_inter_depth: {}".format(np.mean(inter_depth)))
-    # print("contact_ratio: {}".format(np.mean(contact)))
-    # print("=================================================")
+    print("=================================================")
+    print("Evaluation results for {} and {} with {} samples:".format(gender, object_name, n_samples))
+    print("AVG_APD: {}".format(np.mean(apd)))
+    print("AVG_inter_vol: {}".format(np.mean(inter_vol)))
+    print("AVG_inter_depth: {}".format(np.mean(inter_depth)))
+    print("contact_ratio: {}".format(np.mean(contact)))
+    print("=================================================")
 
     # construct the output dict
     output = dict()
@@ -279,4 +296,5 @@ if __name__ == "__main__":
     body_model_path = cwd + '/body_utils/body_models'
     contact_meshes_path = cwd + '/dataset/contact_meshes'
 
+    # compute the evaluation score from one fitting_results file
     evaluate(body_model_path, contact_meshes_path, args.fitting_path, gender, object_name, n_rand_samples_per_object)
