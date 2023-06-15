@@ -16,8 +16,8 @@ source venvs/grasp_venv/bin/activate
 pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 ```
 
-### download files
-- <strong>Body Models</strong>  
+## download files
+- <strong>Body Models</strong>
 Download [SMPL-X body model and vposer v1.0 model](https://smpl-x.is.tue.mpg.de/index.html) and put them under /body_utils/body_models folder as below:
 ```
 FullBodyGraspGen
@@ -44,14 +44,10 @@ FullBodyGraspGen
 │
 └───...
 ```
-
-## Dataset
-### 
+- <strong> Dataset </strong>  
 Download [GRAB](https://grab.is.tue.mpg.de/) object mesh
 
 Download dataset for the first stage (GraspPose) from [[Google Drive]](https://drive.google.com/uc?export=download&id=1OfSGa3Y1QwkbeXUmAhrfeXtF89qvZj54)
-
-Download dataset for the second stage (GraspMotion) from [[Google Drive]](https://drive.google.com/uc?export=download&id=1QiouaqunhxKuv0D0QHv1JHlwVU-F6dWm)
 
 Put them under /dataset as below,
 ```
@@ -70,11 +66,6 @@ FullBodyGraspGen
     │       └───s1
     │       └───...
     │   
-    └───GraspMotion
-    │   └───Processed_Traj
-    │   └───s1
-    │   └───...
-    │   
     └───contact_meshes
     │   └───airplane.ply
     │   └───...
@@ -88,17 +79,26 @@ FullBodyGraspGen
 ## optimize pose
 ```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
 
-## set up on local for visualization
+## train
+- modify cfg in train_diffusion.py
+  
+```python train_diffusion.py```
+## optimize pose
+```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
+
+## visualization
 - download reqiured files as above 
 - pip install requirements_local.txt
-- 
-```python vis_pose.py --exp_name 16dim_mug_pass  --gender male --object mug --label pass```
 
+```
+cd visualization/
+python vis_pose.py --exp_name dim16_diffusion_vis  --gender male --object mug --label pass
+```
 ## run the evaluation to compute SAGA's metrics
 ```
 # take 5 different object poses from GRAB test set per object class, and generate 5 random samples per object, test for male only
 # can set test object class using --objects (default = ['mug','camera','toothpaste','wineglass','fryingpan','binoculars'])
-python eval_grasppose.py --exp_name diffusion_eval --male_pose_ckpt_path pretrained_model/male_grasppose_model.pt --n_object_samples 5 --n_rand_samples_per_object 5 --gender male
+python eval_grasppose.py --exp_name diffusion_eval --male_pose_ckpt_path saga_pretrain/saga_16_pretrain.pt --n_object_samples 5 --n_rand_samples_per_object 5 --gender male
 --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt 
 ```
 
