@@ -19,7 +19,7 @@ pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 - <strong>Body Models</strong>  
 Download [SMPL-X body model and vposer v1.0 model](https://smpl-x.is.tue.mpg.de/index.html) and put them under /body_utils/body_models folder as below:
 ```
-SAGA
+FullBodyGraspGen
 │
 └───body_utils
     │
@@ -54,7 +54,7 @@ Download dataset for the second stage (GraspMotion) from [[Google Drive]](https:
 
 Put them under /dataset as below,
 ```
-SAGA
+FullBodyGraspGen
 │
 └───dataset 
     │
@@ -80,21 +80,12 @@ SAGA
 │
 └───... 
 ```
-### modify source code of SAGA
-change 
-
-```x_near, y_near, xidx_near, yidx_near = chd.ChamferDistance(x,y)```
-
-in *train_helper.py* to
-
-```chd.ChamferDistance(x,y)=>chd.ChamferDistance()(x,y)```
-
 
 ## set up on local for visualization
-- download SAGA 
+- download reqiured files as above 
 - pip install requirements_local.txt
-- follow instructions in SAGA repo
-- after inference done, download results folder into local code base to use vis_pose.py to show them.
+```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
+```python vis_pose.py --exp_name 16dim_mug_pass  --gender male --object mug --label pass```
 
 ## run the evaluation (fitting+opt+eval)
 ```
