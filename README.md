@@ -97,6 +97,6 @@ python eval_grasppose.py --exp_name diffusion_eval --pose_ckpt_path saga_pretrai
 
 ## run the evaluation to compute the consistency score
 ```
-python eval_consistency.py --exp_name diffusion_16d_eval_consistency --n_object_samples 5 --n_rand_samples_per_object 5 --pose_ckpt_path pretrained_model/male_grasppose_model.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --latentD 16
+python eval_consistency.py --exp_name diffusion_16d_eval_consistency --n_object_samples 5 --n_rand_samples_per_object 5 --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --latentD 16
 ```
 
