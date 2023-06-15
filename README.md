@@ -7,6 +7,7 @@ source venvs/grasp_venv/bin/activate
 ```
 ### euler module
 ```// on euler: module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy```
+
 ```// else:```
 ```pip install open3d```
 ```pip install -r requirements.txt```
