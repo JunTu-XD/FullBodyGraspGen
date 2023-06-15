@@ -1,25 +1,6 @@
-# import argparse
-# import os
-# #import sys
-#from collections import defaultdict
-
-# import numpy as np
-# import smplx
 import argparse
 import os
-
 import torch
-# from smplx.lbs import batch_rodrigues
-#from tqdm import tqdm
-
-#from utils.cfg_parser import Config
-#from utils.utils import makelogger, makepath
-# from WholeGraspPose.models.fittingop import FittingOP
-# from WholeGraspPose.models.objectmodel import ObjectModel
-# from WholeGraspPose.trainer import Trainer
-
-
-# from pdb import set_trace as debug
 import torch.optim as optim
 import torch.nn as nn
 from datetime import datetime
@@ -29,30 +10,8 @@ import time
 from torch.utils.tensorboard import SummaryWriter
 
 from WholeGraspPose.trainer import Trainer
-# from data.dataloader import LoadData
+
 from utils.cfg_parser import Config
-
-
-
-    
-    
-
-         
-
-
-
-# class Mapper:
-#     def __init__(self):
-        
-#         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-#         self.model = MapperNet().to(self.device)
-#         self.vars_net = [var[1] for var in self.model.named_parameters()]
-#         self.optimizer_net = optim.Adam(self.vars_net, lr=5e-4, weight_decay=0.0005) 
-#         self.lr_scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer_net, milestones=[20,40,60], gamma=0.5)
-        
-    
-    
-
 
 def save_dataloader(grabpose):
     
@@ -140,11 +99,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
    
-    # work_dir = os.path.join(args.work_dir, args.exp_name)
+   
 
     cwd = os.getcwd()
 
-    # best_net = os.path.join(cwd, args.pose_ckpt_path)
    
 
     cfg = {
@@ -163,12 +121,7 @@ if __name__ == '__main__':
     cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'
     cfg = Config(default_cfg_path=cfg_path, **cfg)
 
-#     ds_name = 'train'
-#     ds_train = LoadData(dataset_dir=cfg.dataset_dir, ds_name=ds_name, gender=cfg.gender,
-#                         motion_intent=cfg.motion_intent, object_class=cfg.object_class, debug=cfg.debug)
     grabpose = Trainer(cfg=cfg, inference = False)
 
     save_dataloader(grabpose)
-    # torch.cuda.empty_cache()
-    # mapper = Mapper()
-    # train_mapper(mapper,'./female_data_dict.pt')
+
