@@ -16,7 +16,7 @@ source venvs/grasp_venv/bin/activate
 pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 ```
 
-### download files
+## download files
 - <strong>Body Models</strong>  
 Download [SMPL-X body model and vposer v1.0 model](https://smpl-x.is.tue.mpg.de/index.html) and put them under /body_utils/body_models folder as below:
 ```
@@ -45,8 +45,7 @@ FullBodyGraspGen
 └───...
 ```
 
-## Dataset
-### 
+- <strong> Dataset </strong>  
 Download [GRAB](https://grab.is.tue.mpg.de/) object mesh
 
 Download dataset for the first stage (GraspPose) from [[Google Drive]](https://drive.google.com/uc?export=download&id=1OfSGa3Y1QwkbeXUmAhrfeXtF89qvZj54)
@@ -69,11 +68,6 @@ FullBodyGraspGen
     │   └───test
     │       └───s1
     │       └───...
-    │   
-    └───GraspMotion
-    │   └───Processed_Traj
-    │   └───s1
-    │   └───...
     │   
     └───contact_meshes
     │   └───airplane.ply
