@@ -80,12 +80,7 @@ FullBodyGraspGen
 ## optimize pose
 ```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
 
-## train
-- modify cfg in train_diffusion.py
-  
-```python train_diffusion.py```
-## optimize pose
-```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
+
 
 ## visualization
 - download reqiured files as above 
