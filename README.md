@@ -98,12 +98,11 @@ python vis_pose.py --exp_name dim16_diffusion_vis  --gender male --object mug --
 ```
 # take 5 different object poses from GRAB test set per object class, and generate 5 random samples per object, test for male only
 # can set test object class using --objects (default = ['mug','camera','toothpaste','wineglass','fryingpan','binoculars'])
-python eval_grasppose.py --exp_name diffusion_eval --male_pose_ckpt_path saga_pretrain/saga_16_pretrain.pt --n_object_samples 5 --n_rand_samples_per_object 5 --gender male
---diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt 
+python eval_grasppose.py --exp_name diffusion_eval --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --n_object_samples 5 --n_rand_samples_per_object 5 --gender male --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt 
 ```
 
 ## run the evaluation to compute the consistency score
 ```
-python eval_consistency.py --exp_name diffusion_16d_eval_consistency --n_object_samples 5 --n_rand_samples_per_object 5 --pose_ckpt_path pretrained_model/male_grasppose_model.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --latentD 16
+python eval_consistency.py --exp_name diffusion_16d_eval_consistency --n_object_samples 5 --n_rand_samples_per_object 5 --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --latentD 16
 ```
 
