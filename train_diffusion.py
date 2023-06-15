@@ -107,13 +107,13 @@ class DiffusionTrainer:
         return internal_dist_mean, external_dist
 
 if __name__=="__main__":
-    exp_name = "test10" # Modify this
+    exp_name = "diffuson_16d" # Modify this
 
     cfg = Config(**{
         "exp_name": exp_name,
-        "dataset_path":'cached_saga_encoder_output/saga_male_latent_128_label.pt', # modify this
+        "dataset_path":'cached_saga_encoder_output/saga_male_latent_label.pt', # modify this
         "batch_size": 8192,
-        "x_dim":128, # Modify this
+        "x_dim":16, # Modify this
         "trained_model":None,
         "epoch":100,
         "save_folder":f"logs/{exp_name}/",
