@@ -7,6 +7,7 @@ source venvs/grasp_venv/bin/activate
 ```
 ### euler module
 ```// on euler: module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy```
+
 ```// else:```
 ```pip install open3d```
 ```pip install -r requirements.txt```
@@ -80,11 +81,17 @@ FullBodyGraspGen
 │
 └───... 
 ```
+## train
+- modify cfg in train_diffusion.py
+  
+```python train_diffusion.py```
+## optimize pose
+```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
 
 ## set up on local for visualization
 - download reqiured files as above 
 - pip install requirements_local.txt
-```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
+- 
 ```python vis_pose.py --exp_name 16dim_mug_pass  --gender male --object mug --label pass```
 
 ## run the evaluation (fitting+opt+eval)
