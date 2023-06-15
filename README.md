@@ -92,8 +92,7 @@ python vis_pose.py --exp_name 16dim_mug_pass  --gender male --object mug --label
 ```
 # take 5 different object poses from GRAB test set per object class, and generate 5 random samples per object, test for male only
 # can set test object class using --objects (default = ['mug','camera','toothpaste','wineglass','fryingpan','binoculars'])
-python eval_grasppose.py --exp_name diffusion_eval --male_pose_ckpt_path saga_pretrain/saga_16_pretrain.pt --n_object_samples 5 --n_rand_samples_per_object 5 --gender male
---diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt 
+python eval_grasppose.py --exp_name diffusion_eval --male_pose_ckpt_path saga_pretrain/saga_16_pretrain.pt --n_object_samples 5 --n_rand_samples_per_object 5 --gender male --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt 
 ```
 
 ## run the evaluation to compute the consistency score
