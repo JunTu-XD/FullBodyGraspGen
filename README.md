@@ -87,7 +87,7 @@ FullBodyGraspGen
 ```
 cd visualization/
 python vis_pose.py --exp_name 16dim_mug_pass  --gender male --object mug --label pass```
-
+```
 ## run the evaluation to compute SAGA's metrics
 ```
 # take 5 different object poses from GRAB test set per object class, and generate 5 random samples per object, test for male only
