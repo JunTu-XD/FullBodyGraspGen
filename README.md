@@ -81,6 +81,9 @@ FullBodyGraspGen
 │
 └───... 
 ```
+## train
+- modify cfg in train_diffusion.py
+- python train_diffusion.py
 
 ## set up on local for visualization
 - download reqiured files as above 
