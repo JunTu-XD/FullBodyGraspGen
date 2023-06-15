@@ -17,7 +17,7 @@ pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 ```
 
 ## download files
-- <strong>Body Models</strong>  
+- <strong>Body Models</strong>
 Download [SMPL-X body model and vposer v1.0 model](https://smpl-x.is.tue.mpg.de/index.html) and put them under /body_utils/body_models folder as below:
 ```
 FullBodyGraspGen
@@ -44,7 +44,6 @@ FullBodyGraspGen
 │
 └───...
 ```
-
 - <strong> Dataset </strong>  
 Download [GRAB](https://grab.is.tue.mpg.de/) object mesh
 
@@ -75,6 +74,7 @@ FullBodyGraspGen
 │
 └───... 
 ```
+
 ## train
 - modify cfg in train_diffusion.py
   
@@ -82,7 +82,7 @@ FullBodyGraspGen
 ## optimize pose
 ```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
 
-## set up on local for visualization
+## visualization
 - download reqiured files as above 
 - pip install requirements_local.txt
 
