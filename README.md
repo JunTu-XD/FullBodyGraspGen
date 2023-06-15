@@ -91,7 +91,7 @@ FullBodyGraspGen
 ## set up on local for visualization
 - download reqiured files as above 
 - pip install requirements_local.txt
-- 
+
 ```python vis_pose.py --exp_name 16dim_mug_pass  --gender male --object mug --label pass```
 
 ## run the evaluation to compute SAGA's metrics
