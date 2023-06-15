@@ -1,27 +1,85 @@
-# setup SAGA
-## on euler server
-### conda
-```conda create -n grasp_conda python=3.8```
-### Or venv
+# setup
+### Venv
 ```
 mkdir venvs
 python3 -m venv venvs/grasp_venv
 source venvs/grasp_venv/bin/activate
 ```
 ### euler module
-```module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy```
-
+```// on euler: module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy```
+```// else:```
+```pip install open3d```
 ```pip install -r requirements.txt```
-
 ```
-## check python, pytorch+cu version
-## modify the py38_cu117_pyt200 to corresponding version
-## download https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html accrodingly
-pip install pytorch3d-0.7.3-cp38-cp38-linux_x86_64.whl
+// follow https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
+pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 ```
 
-### download files according to SAGA git.
+### download files
+- <strong>Body Models</strong>  
+Download [SMPL-X body model and vposer v1.0 model](https://smpl-x.is.tue.mpg.de/index.html) and put them under /body_utils/body_models folder as below:
+```
+SAGA
+│
+└───body_utils
+    │
+    └───body_models 
+        │
+        └───smplx
+        │   └───SMPLX_FEMALE.npz
+        │   └───...
+        │   
+        └───vposer_v1_0
+        │   └───snapshots
+        │       └───TR00_E096.pt
+        │   └───...
+        │
+        └───VPoser
+        │   └───vposerDecoderWeights.npz
+        │   └───vposerEnccoderWeights.npz
+        │   └───vposerMeanPose.npz
+    │
+    └───...
+│
+└───...
+```
 
+## Dataset
+### 
+Download [GRAB](https://grab.is.tue.mpg.de/) object mesh
+
+Download dataset for the first stage (GraspPose) from [[Google Drive]](https://drive.google.com/uc?export=download&id=1OfSGa3Y1QwkbeXUmAhrfeXtF89qvZj54)
+
+Download dataset for the second stage (GraspMotion) from [[Google Drive]](https://drive.google.com/uc?export=download&id=1QiouaqunhxKuv0D0QHv1JHlwVU-F6dWm)
+
+Put them under /dataset as below,
+```
+SAGA
+│
+└───dataset 
+    │
+    └───GraspPose
+    │   └───train
+    │       └───s1
+    │       └───...
+    │   └───eval
+    │       └───s1
+    │       └───...
+    │   └───test
+    │       └───s1
+    │       └───...
+    │   
+    └───GraspMotion
+    │   └───Processed_Traj
+    │   └───s1
+    │   └───...
+    │   
+    └───contact_meshes
+    │   └───airplane.ply
+    │   └───...
+│
+└───... 
+```
 ### modify source code of SAGA
 change 
 
