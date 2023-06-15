@@ -127,7 +127,10 @@ def inference(grabpose, obj, n_samples, n_rand_samples, object_type, save_dir):
     object_contact_gen = []
     markers_contact_gen = []
     for i in range(n_samples_total):
-        sample_results = grabpose.full_grasp_net.sample(obj_data['verts_object'][None, i].repeat(n_rand_samples,1,1), obj_data['feat_object'][None, i].repeat(n_rand_samples,1,1), obj_data['transf_transl'][None, i].repeat(n_rand_samples,1))
+        sample_results = grabpose.full_grasp_net.sample(obj_data['verts_object'][None, i].repeat(n_rand_samples,1,1), 
+                                                        obj_data['feat_object'][None, i].repeat(n_rand_samples,1,1), 
+                                                        obj_data['transf_transl'][None, i].repeat(n_rand_samples,1),
+                                                        label=torch.zeros(n_rand_samples, 23).float()) # use null label to calculate SAGA's metrics
         markers_gen.append((sample_results[0]+obj_data['transf_transl'][None, i]))
         markers_contact_gen.append(sample_results[1])
         object_contact_gen.append(sample_results[2])
@@ -270,7 +273,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', default = './dataset/GraspPose', type=str,
                         help='The path to the folder that contains grabpose data')
 
-    parser.add_argument('--objects', default = ['mug','camera','toothpaste','wineglass','fryingpan','binoculars'], type=list, # 6 objects for test (in SAGA paper)
+    parser.add_argument('--objects', default = ['wineglass','fryingpan','binoculars'], type=list, # 6 objects for test (in SAGA paper) ['mug','camera','toothpaste','wineglass','fryingpan','binoculars']
                         help='The list of all the objects for metrics evaluation') 
 
     parser.add_argument('--config_path', default = None, type=str,
@@ -283,19 +286,20 @@ if __name__ == '__main__':
                         help='The number of object samples of this object')
 
     parser.add_argument('--type_object_samples', default = 'testset_random', type=str,
-                        help='For the given object mesh, we provide two types of object heights and orientation sampling mode: random / uniform / testset_random')
+                        help='For the given object mesh, we provide three types of object heights and orientation sampling mode: random / uniform / testset_random')
 
     parser.add_argument('--n_rand_samples_per_object', default = 1, type=int,
                         help='The number of whole-body poses random samples generated per object')
-
-    parser.add_argument('--gender', default = "male", type=str,
-                        help='male, female, all')
     
-    parser.add_argument('--male_pose_ckpt_path', default = None, type=str,
+    parser.add_argument('--pose_ckpt_path', default = 'pretrained_model/male_grasppose_model.pt', type=str,
                         help='checkpoint path for the male model')
     
-    parser.add_argument('--female_pose_ckpt_path', default = None, type=str,
-                        help='checkpoint path for the female model')
+
+    parser.add_argument('--diffusion_model_path', default = None, type=str,
+                        help='diffusion path')
+    
+    parser.add_argument('--gender', default = "male", type=str,
+                        help='male / female')
     
     
     args = parser.parse_args()
@@ -311,83 +315,42 @@ if __name__ == '__main__':
     
     body_model_path = cwd + '/body_utils/body_models'
     contact_meshes_path = cwd + '/dataset/contact_meshes'
+    diffusion_model_path = os.path.join(cwd, args.diffusion_model_path)
+
+    gender = args.gender
+    best_net = os.path.join(cwd, args.pose_ckpt_path)
+    work_dir = cwd + '/results/{}/{}/GraspPose'.format(args.exp_name, gender)
+    # print(work_dir)
+    config = {
+        'dataset_dir': args.data_path,
+        'work_dir':work_dir,
+        'vpe_path': vpe_path,
+        'c_weights_path': c_weights_path,
+        'exp_name': args.exp_name,
+        'gender': gender,
+        'best_net': best_net,
+        'trained_diffusion': diffusion_model_path,
+    }
+
+    cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'
+    cfg = Config(default_cfg_path=cfg_path, **config)
+
+    # run the inference for all the listed objects
+    for object in args.objects:
+        save_dir = os.path.join(work_dir, object)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)        
+
+        logger = makelogger(makepath(os.path.join(save_dir, '%s.log' % (object)), isfile=True)).info
+        
+        grabpose = Trainer(cfg=cfg, inference=True, logger=logger)
+        
+        samples_results = inference(grabpose, object, args.n_object_samples, n_rand_samples_per_object, args.type_object_samples, save_dir)
+        fitting_results = pose_opt(grabpose, samples_results, n_rand_samples_per_object, object, cfg.gender, save_dir, logger, grabpose.device)
     
-    # the four metrics for evaluation
-    sum_contact, sum_apd, sum_inter_vol, sum_inter_depth = 0., 0., 0., 0.
-    n_samples = 0
-    n_groups_samples = 0
+        # evaluate the results with 4 metrics
+        evaluate(body_model_path, contact_meshes_path, save_dir, gender, object, n_rand_samples_per_object)
 
-    # test for the specified gender type
-    model_name = dict()
-    model_name["male"] = args.male_pose_ckpt_path
-    model_name["female"] = args.female_pose_ckpt_path
 
-    if args.gender == "male":
-        genders = ["male"]
-        
-    elif args.gender == "female":
-        genders = ["female"]
-        
-    else:
-        genders = ['male', 'female']
 
-    for gender in genders:
-        best_net = os.path.join(cwd, model_name[gender])
-        work_dir = cwd + '/results/{}/{}/GraspPose'.format(args.exp_name, gender)
-        # print(work_dir)
-        config = {
-            'dataset_dir': args.data_path,
-            'work_dir':work_dir,
-            'vpe_path': vpe_path,
-            'c_weights_path': c_weights_path,
-            'exp_name': args.exp_name,
-            'gender': gender,
-            'best_net': best_net
-        }
-
-        cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'
-        cfg = Config(default_cfg_path=cfg_path, **config)
-
-        # run the inference for all the listed objects
-        for object in args.objects:
-            save_dir = os.path.join(work_dir, object)
-            if not os.path.exists(save_dir):
-                os.makedirs(save_dir)        
-
-            logger = makelogger(makepath(os.path.join(save_dir, '%s.log' % (object)), isfile=True)).info
-            
-            grabpose = Trainer(cfg=cfg, inference=True, logger=logger)
-            
-            samples_results = inference(grabpose, object, args.n_object_samples, n_rand_samples_per_object, args.type_object_samples, save_dir)
-            fitting_results = pose_opt(grabpose, samples_results, n_rand_samples_per_object, object, cfg.gender, save_dir, logger, grabpose.device)
-        
-            # evaluate the results with 4 metrics
-            eval_i = evaluate(body_model_path, contact_meshes_path, save_dir, gender, object, n_rand_samples_per_object)
-            n_samples += len(eval_i['contact'])
-            sum_contact += np.sum(eval_i['contact'])
-            n_groups_samples += len(eval_i['apd'])
-            sum_apd += np.sum(eval_i['apd'])
-            sum_inter_vol += np.sum(eval_i['inter_vol'])
-            sum_inter_depth += np.sum(eval_i['inter_depth'])
-    
-    output = dict()
-    output['apd'] = sum_apd / n_groups_samples
-    output['inter_vol'] = sum_inter_vol / n_samples
-    output['inter_depth'] = sum_inter_depth / n_samples
-    output['contact_ratio'] = sum_contact / n_samples
-    output['n_samples'] = n_samples
-    output['n_rand_samples_per_object'] = n_rand_samples_per_object
-    output['n_object_samples'] = args.n_object_samples
-    print("=================================================")
-    print("Final evaluation results for experiemnt:".format(args.exp_name))
-    print("APD: {}".format(output['apd']))
-    print("AVG_inter_vol: {}".format(output['inter_vol']))
-    print("AVG_inter_depth: {}".format(output['inter_depth']))
-    print("contact_ratio: {}".format(output['contact_ratio']))
-    print("=================================================")
-    # write to the json file
-    output_path = os.path.join(cwd + '/results/' + args.exp_name, "eval_all.json")
-    with open(output_path, "w") as outfile:
-        json.dump(output, outfile)
-    print("The final evaluation results have been written to {}".format(output_path))
  
