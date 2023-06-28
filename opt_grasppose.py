@@ -66,12 +66,12 @@ def load_object_data_uniform_sample(object_name, n_samples):
     """Example: uniformly sample object height and orientation (can be customized)"""
     transf_transl_list =  torch.arange(n_samples)*1.0/(n_samples-1) + 0.5
     global_orient_list = (2*np.pi)*torch.arange(n_samples)/n_samples
-    n_samples = transf_transl_list.shape[0] * global_orient_list.shape[0]
+    # n_samples = transf_transl_list.shape[0] * global_orient_list.shape[0]
     transl = torch.zeros(n_samples, 3)   # for object model which is centered at object
     transf_transl = torch.zeros(n_samples, 3)
-    transf_transl[:, -1] = transf_transl_list.repeat_interleave(global_orient_list.shape[0])
+    transf_transl[:, -1] = transf_transl_list # .repeat_interleave(global_orient_list.shape[0])
     global_orient = torch.zeros(n_samples, 3)
-    global_orient[:, -1] = global_orient_list.repeat(transf_transl_list.shape[0])  # [6+6+6.....]
+    global_orient[:, -1] = global_orient_list # .repeat(transf_transl_list.shape[0])  # [6+6+6.....]
     global_orient_rotmat = batch_rodrigues(global_orient.view(-1, 3)).to(grabpose.device)   # [N, 3, 3]
 
     object_output = obj_model(global_orient_rotmat, transl.to(grabpose.device), v_temp.to(grabpose.device), normal_temp.to(grabpose.device), rotmat=True)
@@ -265,6 +265,10 @@ if __name__ == '__main__':
     parser.add_argument('--pose_ckpt_path', default = None, type=str,
                         help='checkpoint path')
 
+    parser.add_argument('--diffusion_model_path', default = None, type=str,
+                        help='diffusion path')
+
+
     parser.add_argument('--n_object_samples', default = 5, type=int,
                         help='The number of object samples of this object')
 
@@ -274,15 +278,26 @@ if __name__ == '__main__':
     parser.add_argument('--n_rand_samples_per_object', default = 1, type=int,
                         help='The number of whole-body poses random samples generated per object')
 
-    parser.add_argument('--sample_label', default = 0, type=int,
+    parser.add_argument('--label_name', default = None, type=str,
                         help='sample label condition')
+    
+    parser.add_argument('--latentD', default = 16, type=int,
+                        help='Latent dimension')
 
     args = parser.parse_args()
+
+    labels = ['call', 'chop', 'clean', 'drink', 'eat', 'fly', 'inspect', 'offhand', 'on', 'open', 'pass', 'peel',
+              'play', 'pour', 'screw', 'see', 'set', 'shake', 'stamp', 'staple', 'use', 'wear']
+    label_dict = dict()
+    for i, l in enumerate(labels):
+        label_dict[l] = i
+    
+    label_idx = label_dict[args.label_name]
 
     cwd = os.getcwd()
 
     best_net = os.path.join(cwd, args.pose_ckpt_path)
-
+    diffusion_model_path = os.path.join(cwd, args.diffusion_model_path)
     vpe_path  = '/configs/verts_per_edge.npy'
     c_weights_path = cwd + '/WholeGraspPose/configs/rhand_weight.npy'
     work_dir = cwd + '/results/{}/GraspPose'.format(args.exp_name)
@@ -295,15 +310,19 @@ if __name__ == '__main__':
         'exp_name': args.exp_name,
         'gender': args.gender,
         'best_net': best_net,
-        'sample_label': args.sample_label
+        'trained_diffusion': diffusion_model_path,
+        'sample_label': label_idx,
+        'latentD': args.latentD
     }
 
     cfg_path = 'WholeGraspPose/configs/WholeGraspPose.yaml'
     cfg = Config(default_cfg_path=cfg_path, **config)
 
-    save_dir = os.path.join(work_dir, args.object)
+    save_dir = os.path.join(work_dir, args.object, args.label_name)
+    
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)        
+    
 
     logger = makelogger(makepath(os.path.join(save_dir, '%s.log' % (args.object)), isfile=True)).info
     

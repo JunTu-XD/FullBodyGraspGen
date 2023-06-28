@@ -285,13 +285,57 @@ class TransformerDenoising(nn.Module):
 
         return X
 
+
+class SeqTransformerDenoising(nn.Module):
+    def __init__(self, vec_dim, drop_out_p, heads, depth):
+        '''
+        - seq_len: The lenth of the sequence of vectors that the Transformer Block will process
+        - vec_dim: The dimension of the sequence of vectors that the Transformer Block will process (should be 512, but it's not constrained to be 512)
+        - drop_out_p: drop out probability
+        - heads: number of heads
+        - depth: Number of transformer blocks stacked
+        '''
+        super(SeqTransformerDenoising, self).__init__()
+        self.warned = False
+        self.vec_dim = vec_dim
+        self.seq_len = 3
+
+        # Attention
+        attention_blocks = []
+        for i in range(depth):
+            attention_blocks.append(TransformerBlock(input_dim=vec_dim, hidden_dim=vec_dim*2, num_heads=heads, dropout_rate=drop_out_p))
+        self.model = nn.Sequential(*attention_blocks)
+
+        # LayerNorms, Regularization, GELU
+        self.drop_out = nn.Dropout(drop_out_p)
+
+
+    def forward(self, feature_vec, time_emb, condition=None): # expect all three inputs to be of size [bs, 512]
+        feat_with_time = torch.cat( [feature_vec[None, :], time_emb[None, :]]) # [bs,512]
+        if condition != None:
+            if not self.warned:
+                print(Fore.RED + "Warning: You are introducing condition during sampling! This is inconsistent with the SAGA pipeline!\n"
+                               + Style.RESET_ALL)
+                self.warned = True
+            X = torch.cat([feat_with_time, condition[None, :]])
+        else:
+            X = feat_with_time # [2, bs, D]
+
+
+        X = self.model(X) # [L, bs, 512]
+
+        X = torch.sum(X, dim=0)
+
+        return X
+
+
 if __name__ == '__main__':
-    model = TransformerDenoising(seq_len=8, vec_dim=512, drop_out_p=0.3, heads=8, depth=3)
+    model = SeqTransformerDenoising(vec_dim=16, drop_out_p=0.3, heads=8, depth=3)
     batch_size = 32
 
-    feature_vec = torch.rand((batch_size,512))
-    time = torch.rand((batch_size,512))
-    condition = torch.rand((batch_size,512))
+    feature_vec = torch.rand((batch_size,16))
+    time = torch.rand((batch_size,16))
+    condition = torch.rand((batch_size,16))
 
     out = model(feature_vec,time,condition)
 

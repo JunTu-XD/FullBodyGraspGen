@@ -101,10 +101,12 @@ class Trainer:
 
         if cfg.best_net is not None:
             self._get_net_model().load_state_dict(torch.load(cfg.best_net, map_location=self.device), strict=False)
+            self.full_grasp_net.diffusion.model.load_state_dict(torch.load(cfg.trained_diffusion, map_location=self.device), strict=False)
             self.logger('Restored ContactNet model from %s' % cfg.best_net)
+            self.logger('Restored Diiffusion model from %s' % cfg.trained_diffusion)
         elif cfg.use_pretrained is not None:
             self._get_net_model().load_state_dict(torch.load(cfg.use_pretrained, map_location=self.device), strict=False)
-            # self._get_net_model().adaptor.load_state_dict(torch.load(cfg.pretrained_adaptor, map_location=self.device), strict=False)
+            # self._get_net_model().diffusion.model.load_state_dict(torch.load(cfg.pretrained_adaptor, map_location=self.device), strict=False)
             self.logger('Restored Pretrained Grasp model from %s' % cfg.use_pretrained)
 
         if cfg.continue_train:
@@ -367,7 +369,7 @@ class Trainer:
 
         early_stopping_net = EarlyStopping(patience=8, trace_func=self.logger)
         
-        self.evaluate()
+
 
         for epoch_num in tqdm(range(self.start_epoch, n_epochs + 1)):
             self.logger('--- starting Epoch # %03d' % epoch_num)

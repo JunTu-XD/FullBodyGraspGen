@@ -22,6 +22,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--object_format', default = 'mesh', type=str,
                         help='pcd or mesh')
+    parser.add_argument('--label', default = None, type=str,
+                        help='pcd or mesh')
     
     # 'objectmesh' : grasp+object, 
     # 'contactmap' : grasp+conatctmap
@@ -33,7 +35,7 @@ if __name__ == '__main__':
 
     cwd = os.getcwd()
 
-    load_path = '../results/{}/GraspPose/{}/fitting_results.npz'.format(args.exp_name, args.object)
+    load_path = '../results/{}/GraspPose/{}/{}/fitting_results.npz'.format(args.exp_name, args.object, args.label)
     body_model_path = '../body_utils/body_models'
     contact_meshes_path = '../dataset/contact_meshes'
 

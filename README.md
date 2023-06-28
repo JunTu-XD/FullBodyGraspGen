@@ -1,52 +1,109 @@
-# setup SAGA
-## on euler server
-### conda
-```conda create -n grasp_conda python=3.8```
-### Or venv
+# setup
+### Venv
 ```
 mkdir venvs
 python3 -m venv venvs/grasp_venv
 source venvs/grasp_venv/bin/activate
 ```
 ### euler module
-```module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy```
+```// on euler: module load gcc/8.2.0 python_gpu/3.10.4 open3d/0.9.0 boost/1.74.0 eth_proxy```
 
+```// else:```
+```pip install open3d```
 ```pip install -r requirements.txt```
-
 ```
-## check python, pytorch+cu version
-## modify the py38_cu117_pyt200 to corresponding version
-## download https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu117_pyt200/download.html accrodingly
-pip install pytorch3d-0.7.3-cp38-cp38-linux_x86_64.whl
+// follow https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
+pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 ```
 
-### download files according to SAGA git.
+## download files
+- <strong>Body Models</strong>
+Download [SMPL-X body model and vposer v1.0 model](https://smpl-x.is.tue.mpg.de/index.html) and put them under /body_utils/body_models folder as below:
+```
+FullBodyGraspGen
+│
+└───body_utils
+    │
+    └───body_models 
+        │
+        └───smplx
+        │   └───SMPLX_FEMALE.npz
+        │   └───...
+        │   
+        └───vposer_v1_0
+        │   └───snapshots
+        │       └───TR00_E096.pt
+        │   └───...
+        │
+        └───VPoser
+        │   └───vposerDecoderWeights.npz
+        │   └───vposerEnccoderWeights.npz
+        │   └───vposerMeanPose.npz
+    │
+    └───...
+│
+└───...
+```
+- <strong> Dataset </strong>
 
-### modify source code of SAGA
-change 
+Download [GRAB](https://grab.is.tue.mpg.de/) object mesh
 
-```x_near, y_near, xidx_near, yidx_near = chd.ChamferDistance(x,y)```
+Download dataset for the first stage (GraspPose) from [[Google Drive]](https://drive.google.com/uc?export=download&id=1OfSGa3Y1QwkbeXUmAhrfeXtF89qvZj54)
 
-in *train_helper.py* to
+Put them under /dataset as below,
+```
+FullBodyGraspGen
+│
+└───dataset 
+    │
+    └───GraspPose
+    │   └───train
+    │       └───s1
+    │       └───...
+    │   └───eval
+    │       └───s1
+    │       └───...
+    │   └───test
+    │       └───s1
+    │       └───...
+    │   
+    └───contact_meshes
+    │   └───airplane.ply
+    │   └───...
+│
+└───... 
+```
+## train
+- modify cfg in train_diffusion.py
+  
+```python train_diffusion.py```
+## optimize pose
+```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
 
-```chd.ChamferDistance(x,y)=>chd.ChamferDistance()(x,y)```
+## train
+- modify cfg in train_diffusion.py
+  
+```python train_diffusion.py```
+## optimize pose
+```python opt_grasppose.py --object mug --gender male --exp_name 16dim_mug_pass --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --n_object_samples 15 --type_object_samples uniform --label_name pass --latentD 16```
 
-
-## set up on local for visualization
-- download SAGA 
+## visualization
+- download reqiured files as above 
 - pip install requirements_local.txt
-- follow instructions in SAGA repo
-- after inference done, download results folder into local code base to use vis_pose.py to show them.
 
-## run the evaluation (fitting+opt+eval)
 ```
-# take 30 different object poses from GRAB test set per object class, and generate 5 random samples per object, test for male only
+cd visualization/
+python vis_pose.py --exp_name dim16_diffusion_vis  --gender male --object mug --label pass
+```
+## run the evaluation to compute SAGA's metrics
+```
+# take 5 different object poses from GRAB test set per object class, and generate 5 random samples per object, test for male only
 # can set test object class using --objects (default = ['mug','camera','toothpaste','wineglass','fryingpan','binoculars'])
-python eval_grasppose.py --exp_name saga_pretrained_eval --male_pose_ckpt_path pretrained_model/male_grasppose_model.pt --n_object_samples 30 --n_rand_samples_per_object 5 --gender male
+python eval_grasppose.py --exp_name diffusion_eval --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --n_object_samples 5 --n_rand_samples_per_object 5 --gender male --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt 
 ```
 
-## compute the eval metrics of one single fitting_results.npz file
+## run the evaluation to compute the consistency score
 ```
-python eval_metrics.py --exp_name saga_512d_female_eval --gender female --object camera --fitting_path results/saga_512d_female_eval/GraspPose/camera --n_rand_samples_per_object 1
+python eval_consistency.py --exp_name diffusion_16d_eval_consistency --n_object_samples 5 --n_rand_samples_per_object 5 --pose_ckpt_path saga_pretrained_model/saga_16_pretrain.pt --diffusion_model_path usable_diffusion_ckpt/dim16_heads2_depth2.pt --latentD 16
 ```
 
